@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Updated:** 2026-05-15
+**Updated:** 2026-06-09
 **Version:** v0.2.0
 
 ## OVERVIEW
@@ -18,7 +18,7 @@ phased build order.
 ```text
 tianji/
 ├── src/                    # Rust implementation
-├── Cargo.toml              # Rust crate manifest (16 deps)
+├── Cargo.toml              # Rust crate manifest (24 deps)
 ├── tests/
 │   └── fixtures/           # sample_feed.xml + contract fixtures
 ├── plan.md                 # Authoritative Rust architecture + build phases
@@ -37,14 +37,14 @@ tianji/
 | Rust grouping | `src/grouping.rs` | Event grouping + causal ordering |
 | Rust backtracking | `src/backtrack.rs` | Intervention candidate generation |
 | Rust storage | `src/storage.rs` | SQLite 6 tables + history CRUD |
-| Rust TUI | `src/tui.rs` | ratatui history browser (Kanagawa Dark) |
+| Rust TUI | `src/tui/` | ratatui history/simulation browser (Kanagawa Dark) |
 | Rust delta engine | `src/delta.rs`, `src/delta_memory.rs` | Cross-run change tracking + alert tier |
 | Development plan | `.trellis/spec/backend/development-plan.md` | Milestones and guardrails |
 
 ## CODE MAP (Rust)
 | Symbol | Type | Location | Role |
 |--------|------|----------|------|
-| `main` | function | `src/main.rs` | CLI entry (9 subcommands) |
+| `main` | function | `src/main.rs` | CLI entry (17 shipped top-level subcommands) |
 | `RawItem` | struct | `src/models.rs` | Parsed feed item |
 | `NormalizedEvent` | struct | `src/models.rs` | Extracted event with keywords/actors/regions |
 | `ScoredEvent` | struct | `src/models.rs` | Event with Im/Fa/divergence scores |
@@ -57,10 +57,10 @@ tianji/
 | `persist_run` | function | `src/storage.rs` | SQLite persistence (6 tables) |
 | `list_runs` | function | `src/storage.rs` | History list with filters |
 | `AppState` | struct | `src/api.rs` | axum shared state (sqlite_path) |
-| `build_router` | function | `src/api.rs` | axum Router (6 GET routes) |
+| `build_router` | function | `src/api.rs` | axum Router (8 GET routes + 1 POST command ingress) |
 | `DaemonState` | struct | `src/daemon.rs` | In-memory job queue (Mutex+Condvar) |
 | `serve` | function | `src/daemon.rs` | tokio runtime: socket + API + worker |
-| `WebUiState` | struct | `src/webui.rs` | axum state (api_base_url) |
+| `WebUiState` | struct | `src/webui.rs` | axum state (api_base_url, socket_path) |
 | `serve_webui` | function | `src/webui.rs` | Static file serve + API proxy + /queue-run |
 | `compute_delta` | function | `src/delta.rs` | Cross-run delta computation |
 | `HotMemory` | struct | `src/delta_memory.rs` | Alert tier + hot-run tracking |

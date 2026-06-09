@@ -50,7 +50,7 @@ These are the current product-aligned surfaces the shipped API mirrors:
   - reuses the same scored-event and event-group projection vocabulary as `history-show`
   - confirms that compare is already part of the mirrored backend surface that the first API slice must name explicitly for direct pair comparison
 
-## Recommended First API Resources
+## Shipped API Resources
 
 ### 1. `GET /api/v1/meta`
 
@@ -58,7 +58,7 @@ Purpose:
 - expose static contract metadata for a future UI
 - avoid implying live runtime or job status through this read-first metadata route
 
-Recommended response:
+Response shape:
 
 ```json
 {
@@ -138,8 +138,32 @@ Purpose:
 
 Notes:
 - this freezes exactly one compare route name for v1
-- latest/relative compare preset routes stay deferred
+- latest/relative compare preset routes stay CLI/storage concerns unless a future PRD scopes API aliases
 - the `data` payload should mirror `history_compare_v1.json` field names rather than remapping compare-side or diff vocabulary
+
+### 6. `GET /api/v1/health`
+
+Purpose:
+- liveness probe for the local API process
+- does not query SQLite
+
+### 7. `GET /api/v1/ready`
+
+Purpose:
+- readiness probe for SQLite-backed API serving
+- checks pool checkout plus a trivial SQLite query
+
+### 8. `GET /api/v1/delta/latest`
+
+Purpose:
+- expose the latest local delta report from hot memory for local dashboards
+
+### 9. `POST /api/v1/agent/command`
+
+Purpose:
+- optional HMAC-signed local agent command ingress
+- disabled when no command secret is configured
+- remains loopback/local-only and preserves replay protection
 
 ## Frozen v1 Vocabulary Fixtures
 
@@ -216,7 +240,7 @@ These either do not exist in the current product surface or would force architec
 ## Mapping to Current TianJi Code
 
 - `src/main.rs`
-  - current operator commands: `run`, `history`, `history-show`, `history-compare`, `tui`, daemon/API/web UI, doctor, completions, and simulation commands
+  - current operator commands: `run`, `history`, `history-show`, `history-compare`, `daemon`, `webui`, `tui`, `delta`, `predict`, `backtrack`, `baseline`, `watch`, `doctor`, `eval`, `sources`, `maintenance`, and `completions`
 
 - `src/lib.rs` plus pipeline modules (`fetch`, `normalize`, `scoring`, `backtrack`)
   - define the unit of work: one run -> one artifact
@@ -243,10 +267,13 @@ These either do not exist in the current product surface or would force architec
 The first shipped local API slice follows this order:
 
 1. `GET /api/v1/meta`
-2. `GET /api/v1/runs`
-3. `GET /api/v1/runs/{run_id}`
-4. `GET /api/v1/compare?left_run_id=<id>&right_run_id=<id>`
-5. optional `GET /api/v1/runs/latest`
-6. only then consider write endpoints
+2. `GET /api/v1/health`
+3. `GET /api/v1/ready`
+4. `GET /api/v1/runs`
+5. `GET /api/v1/runs/latest`
+6. `GET /api/v1/runs/{run_id}`
+7. `GET /api/v1/compare?left_run_id=<id>&right_run_id=<id>`
+8. `GET /api/v1/delta/latest`
+9. optional `POST /api/v1/agent/command` when command secret configuration is available
 
 This keeps the first API slice aligned with the current stable product reality: read-first, local-first, deterministic, loopback-only, and optional for operators who only need the CLI or TUI.

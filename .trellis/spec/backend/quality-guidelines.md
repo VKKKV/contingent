@@ -25,21 +25,30 @@ gates passed.
 Only dependencies needed for implemented milestones:
 
 ```toml
-regex = "1.10"
-roxmltree = "0.20"
+regex = "1.12"
+roxmltree = "0.21"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sha2 = "0.10"
-rusqlite = { version = "0.32", features = ["bundled"] }
-clap = { version = "4", features = ["derive"] }
+serde_yaml = "0.9"
+sha2 = "0.11"
+hmac = "0.13"
+rusqlite = { version = "0.39", features = ["bundled"] }
+clap = { version = "4.6", features = ["derive"] }
 clap_complete = "4"
 tokio = { version = "1", features = ["full"] }
-axum = "0.7"
+axum = "0.8"
 uuid = { version = "1", features = ["v4"] }
-reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "blocking"] }
 libc = "0.2"
 ratatui = "0.30"
 crossterm = "0.28"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+blake3 = "1"
+petgraph = { version = "0.7", features = ["serde-1"] }
 ```
 
 ### Rust Dependencies (Planned, per `plan.md` §11)
@@ -50,8 +59,8 @@ Add only when the milestone requires them:
 - Milestone 3: `tokio` (async runtime), `axum` (HTTP API), `reqwest` (reverse proxy), `uuid` (job IDs), `libc` (setsid) — **shipped**
 - Milestone 4: `ratatui`, `crossterm` (TUI) — **shipped**
 - Phase 6: `clap_complete` (shell completions) — **shipped**
-- Phase 2+: `blake3`, `petgraph`, `chrono` (worldline, field DAG)
-- Phase 3+: `async-openai`, `ollama-rs` (LLM providers)
+- Phase 2+: `blake3`, `petgraph`, `chrono` (worldline, field DAG) — **shipped**
+- LLM providers use the shipped `reqwest`-based client/registry; no `async-openai` or `ollama-rs` dependency is present.
 
 ---
 

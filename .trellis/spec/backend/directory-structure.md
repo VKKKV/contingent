@@ -11,65 +11,20 @@ in `plan.md` §10. Python oracle code was retired in Phase 6 (v0.2.0).
 
 ---
 
-## Rust Directory Layout (Target)
+## Historical Target Layout
 
-The target Rust project structure per `plan.md` §10:
-
-```
-tianji/
-├── Cargo.toml
-├── src/
-│   ├── main.rs
-│   ├── lib.rs
-│   ├── models.rs               # Worldline, Event, Profile, ActionProposal...
-│   ├── error.rs
-│   │
-│   ├── cangjie/
-│   │   ├── mod.rs
-│   │   ├── feed.rs             # RSS/Atom (roxmltree)
-│   │   ├── fetch.rs            # HTTP (reqwest)
-│   │   ├── normalize.rs        # regex keyword/actor/region extraction
-│   │   └── sources.rs          # source registry + fetch policy
-│   │
-│   ├── fuxi/
-│   │   ├── mod.rs
-│   │   ├── worldline.rs        # Worldline state machine + Blake3 snapshot
-│   │   ├── scoring.rs          # Im/Fa + divergence
-│   │   ├── grouping.rs         # event grouping + causal ordering
-│   │   ├── backtrack.rs        # intervention candidates
-│   │   ├── triggers.rs         # threshold/pattern detection
-│   │   └── dependency.rs       # petgraph field DAG
-│   │
-│   ├── hongmeng/               # Phase 2+
-│   ├── nuwa/                   # Phase 3+
-│   ├── storage.rs              # rusqlite: worldlines, runs, profiles, checkpoints
-│   ├── llm.rs                  # LLM abstraction layer
-│   │
-│   ├── cli/                    # clap derive
-│   ├── tui/                    # ratatui
-│   ├── daemon/                 # axum + UNIX socket
-│   ├── webui.rs                # axum serve static
-│   └── output.rs               # terminal formatting (tabled + JSON)
-│
-├── profiles/                   # Actor profile YAML
-├── rules/                      # Auto trigger rules
-├── tianji/webui/               # Static Web UI (preserved)
-├── tests/
-│   ├── fixtures/sample_feed.xml
-│   ├── test_pipeline.rs
-│   ├── test_scoring.rs
-│   └── ...
-├── plan.md
-└── README.md
-```
+Older roadmap drafts described a future subsystem-directory split (`cangjie/`,
+`fuxi/`, `cli/`, `daemon/`, `output.rs`). That layout is historical context only.
+The shipped Rust product currently uses the source layout below; root `plan.md`
+and `README.md` are authoritative for operator-facing structure.
 
 ### Current State (All Milestones Complete)
 
-The Rust crate implements all shipped milestones:
+The Rust crate implements all shipped milestones. Current source layout:
 
 ```
 src/
-├── main.rs          # CLI entry (9 subcommands: run, history, history-show, history-compare, delta, daemon, webui, tui, completions)
+├── main.rs          # CLI entry (17 shipped top-level subcommands)
 ├── lib.rs           # Pipeline orchestration + integration tests
 ├── models.rs        # RawItem, NormalizedEvent, ScoredEvent, RunArtifact, etc.
 ├── fetch.rs         # RSS/Atom parsing + canonical hashing (Cangjie)
@@ -77,17 +32,29 @@ src/
 ├── scoring.rs       # Im/Fa scoring + rationale (Fuxi)
 ├── grouping.rs      # Event grouping + causal ordering (Fuxi)
 ├── backtrack.rs     # Intervention candidate generation (Fuxi)
-├── storage.rs       # SQLite 6 tables + history CRUD
+├── storage.rs       # SQLite history/source-health/maintenance CRUD
 ├── daemon.rs        # UNIX socket + job queue + serve
-├── api.rs           # axum 6-route HTTP API
+├── api.rs           # axum /api/v1 routes (8 GET + 1 POST command ingress)
 ├── webui.rs         # Embedded static files + API proxy + /queue-run
-├── tui.rs           # ratatui history browser (Kanagawa Dark)
-├── delta.rs         # Crucix Delta Engine: compute_delta, severity
-├── delta_memory.rs  # HotMemory, AlertDecayModel, AlertTier
-└── utils.rs         # round2, days_since_epoch, collect_string_array
+├── tui/             # ratatui history/simulation browser (Kanagawa Dark)
+├── hongmeng/        # Agent orchestration, board, referee, config, checkpoint
+├── nuwa/            # Forward/backward simulation, pruning, trace/bundle export
+├── llm/             # Provider config, registry, and reqwest client
+├── profile/         # Actor profile registry, dynamic memory, typed profiles
+├── worldline/       # Baseline, dependency graph, store, typed worldline state
+├── source_registry.rs
+├── eval.rs
+├── alert_dispatch.rs
+├── delta.rs
+├── delta_memory.rs
+├── scoring_params.rs
+├── time_utils.rs
+└── utils.rs
 ```
 
-This will expand to the target structure as future phases are implemented.
+Root `plan.md` and `README.md` are authoritative for current operator-facing
+structure. Historical phase specs may still mention pre-split files such as
+`src/tui.rs` as implementation history, not as current paths.
 
 ---
 
