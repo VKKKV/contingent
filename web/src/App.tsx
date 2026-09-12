@@ -16,9 +16,11 @@ import {
 } from "lucide-react";
 import {
   actionLabel,
+  disturbanceLabel,
   frameAtTick,
   isTerminal,
   modeLabel,
+  schemaAt,
   schemaFields,
   statusLabel,
 } from "./api";
@@ -26,6 +28,7 @@ import type {
   Action,
   Branch,
   Comparison,
+  Disturbance,
   Goal,
   JsonSchema,
   Scenario,
@@ -55,8 +58,48 @@ const labels: Record<string, string> = {
   shortage: "累计缺货",
   spent: "累计支出",
   delivered: "累计满足需求",
+  lost: "累计损失",
 };
 const actions: Action[] = ["wait", "order_standard", "order_express"];
+const disturbanceKinds: Disturbance["kind"][] = [
+  "demand_spike",
+  "supplier_loss",
+];
+// Mirrors the Scenario validator in the slice contract: a demand spike is
+// capped tighter than a supplier loss, and the schedule is bounded. The server
+// still re-validates everything; these are only the editor's own limits.
+const demandSpikeMax = 20;
+const disturbanceLimits = { maxItems: 10, amountMin: 1, amountMax: 200 };
+export function disturbanceErrors(
+  list: Disturbance[],
+  horizon: number,
+  amountMax: number,
+): string[] {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  list.forEach((d, i) => {
+    const name = disturbanceLabel[d.kind];
+    if (!Number.isInteger(d.tick) || d.tick < 1 || d.tick > horizon)
+      errors.push(
+        `第 ${i + 1} 条：周期须为 1–${horizon} 的整数，当前 ${d.tick}。`,
+      );
+    const cap =
+      d.kind === "demand_spike"
+        ? Math.min(amountMax, demandSpikeMax)
+        : amountMax;
+    if (!Number.isInteger(d.amount) || d.amount < 1 || d.amount > cap)
+      errors.push(
+        `第 ${i + 1} 条：${name}幅度须为 1–${cap} 的整数，当前 ${d.amount}。`,
+      );
+    const key = `${d.tick}:${d.kind}`;
+    if (seen.has(key))
+      errors.push(
+        `第 ${i + 1} 条：T${d.tick} 已有${name}，请改周期或类型，或删除该行。`,
+      );
+    seen.add(key);
+  });
+  return errors;
+}
 const goalDefaults: Goal = {
   max_shortage: 0,
   min_cash: 0,
@@ -134,6 +177,150 @@ function NumericField({
   );
 }
 
+function DisturbanceEditor({
+  value,
+  horizon,
+  kinds,
+  maxItems,
+  amountMin,
+  amountMax,
+  errors,
+  disabled,
+  onChange,
+}: {
+  value: Disturbance[];
+  horizon: number;
+  kinds: Disturbance["kind"][];
+  maxItems: number;
+  amountMin: number;
+  amountMax: number;
+  errors: string[];
+  disabled: boolean;
+  onChange: (value: Disturbance[]) => void;
+}) {
+  const cap = (kind: Disturbance["kind"]) =>
+    kind === "demand_spike" ? Math.min(amountMax, demandSpikeMax) : amountMax;
+  const patch = (index: number, next: Partial<Disturbance>) =>
+    onChange(value.map((d, i) => (i === index ? { ...d, ...next } : d)));
+  const append = () => {
+    // Default to the first unused (tick, kind) pair so a new row never starts
+    // out rejected by the server's duplicate rule; the operator then edits it.
+    for (let tick = 1; tick <= Math.max(1, horizon); tick += 1)
+      for (const kind of kinds)
+        if (!value.some((d) => d.tick === tick && d.kind === kind)) {
+          onChange([...value, { tick, kind, amount: amountMin }]);
+          return;
+        }
+    onChange([
+      ...value,
+      { tick: Math.max(1, horizon), kind: kinds[0], amount: amountMin },
+    ]);
+  };
+  return (
+    <div className="disturbance-editor">
+      <div className="row-between disturbance-heading">
+        <h3>外生扰动</h3>
+        <span className="muted mono">
+          已配置 <span data-testid="disturbance-count">{value.length}</span> 条
+        </span>
+      </div>
+      <p className="muted">
+        声明式事件，无随机性。需求激增在当期基础需求上叠加；供应损失扣减供应商库存，缺口不结转。
+      </p>
+      {value.length ? (
+        <ul className="disturbance-list">
+          {value.map((d, i) => (
+            <li key={i} className="disturbance-row">
+              <label>
+                <span>周期</span>
+                <input
+                  data-testid={`disturbance-tick-${i}`}
+                  type="number"
+                  step="1"
+                  min={1}
+                  max={horizon}
+                  value={d.tick}
+                  disabled={disabled}
+                  onChange={(e) => patch(i, { tick: Number(e.target.value) })}
+                />
+              </label>
+              <label>
+                <span>类型</span>
+                <select
+                  data-testid={`disturbance-kind-${i}`}
+                  value={d.kind}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    patch(i, {
+                      kind: e.target.value as Disturbance["kind"],
+                      amount: Math.min(
+                        d.amount,
+                        cap(e.target.value as Disturbance["kind"]),
+                      ),
+                    })
+                  }
+                >
+                  {kinds.map((k) => (
+                    <option key={k} value={k}>
+                      {disturbanceLabel[k]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>幅度</span>
+                <input
+                  data-testid={`disturbance-amount-${i}`}
+                  type="number"
+                  step="1"
+                  min={amountMin}
+                  max={cap(d.kind)}
+                  value={d.amount}
+                  disabled={disabled}
+                  onChange={(e) => patch(i, { amount: Number(e.target.value) })}
+                />
+              </label>
+              <button
+                type="button"
+                className="icon-button"
+                title="移除该扰动"
+                aria-label={`移除第 ${i + 1} 条外生扰动`}
+                data-testid={`disturbance-remove-${i}`}
+                disabled={disabled}
+                onClick={() => onChange(value.filter((_, j) => j !== i))}
+              >
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty small" data-testid="disturbance-empty">
+          无外生扰动
+        </p>
+      )}
+      {errors.length > 0 && (
+        <p className="edit-note" role="alert" data-testid="disturbance-errors">
+          外生扰动未通过本地校验：{errors.join("；")}
+        </p>
+      )}
+      <button
+        type="button"
+        className="full"
+        data-testid="disturbance-add"
+        disabled={disabled || value.length >= maxItems}
+        onClick={append}
+      >
+        <Plus size={13} />
+        新增扰动
+      </button>
+      {value.length >= maxItems && (
+        <p className="muted">最多配置 {maxItems} 条扰动。</p>
+      )}
+    </div>
+  );
+}
+
 function Trace({
   branch,
   tick,
@@ -156,6 +343,17 @@ function Trace({
   const last = frames[frames.length - 1].state.tick;
   const x = (t: number) => 42 + ((t - first) / Math.max(1, last - first)) * 580;
   const y = (n: number) => 184 - (n / max) * 150;
+  // Real schedule from the frozen branch spec; ticks outside the recorded
+  // frames have no place on this chart. Several events may share one tick.
+  const marks = (branch.spec.disturbances ?? [])
+    .filter((d) => d.tick >= first && d.tick <= last)
+    .map((d) => ({
+      tick: d.tick,
+      text: `T${d.tick} ${disturbanceLabel[d.kind]} ${d.amount}`,
+    }));
+  const markTicks = [...new Set(marks.map((d) => d.tick))].sort(
+    (a, b) => a - b,
+  );
   const series = [
     { key: "inventory", label: "库存", color: "#6ce1dc" },
     { key: "shortage", label: "累计缺货", color: "#e5b77b" },
@@ -170,6 +368,12 @@ function Trace({
             {s.label}
           </span>
         ))}
+        {markTicks.length > 0 && (
+          <span className="disturbance-legend" data-testid="disturbance-legend">
+            <i />
+            外生扰动
+          </span>
+        )}
         <span className="unit">单位：件</span>
       </div>
       <svg
@@ -189,6 +393,24 @@ function Trace({
             <text x="30" y={y(max * f) + 4} textAnchor="end">
               {Math.round(max * f)}
             </text>
+          </g>
+        ))}
+        {markTicks.map((t) => (
+          <g key={`disturbance-${t}`}>
+            <title>
+              {marks
+                .filter((d) => d.tick === t)
+                .map((d) => d.text)
+                .join(" · ")}
+            </title>
+            <line
+              x1={x(t)}
+              y1="24"
+              x2={x(t)}
+              y2="184"
+              className="disturbance-line"
+              data-testid={`disturbance-marker-${t}`}
+            />
           </g>
         ))}
         <line
@@ -266,6 +488,36 @@ export default function App() {
   const scenarioSchema = schemaFields(lab.catalog, "scenario_create", "spec");
   const goalSchema = schemaFields(lab.catalog, "run_backward", "goal");
   const backwardSchema = schemaFields(lab.catalog, "run_backward");
+  // The schedule editor reads its bounds from the live capability schema; the
+  // contract limits are only the offline fallback. The server stays authority.
+  const schedule = ["spec", "disturbances", "[]"] as const;
+  const scheduleList = schemaAt(lab.catalog, "scenario_create", [
+    "spec",
+    "disturbances",
+  ]);
+  const scheduleAmount = schemaAt(lab.catalog, "scenario_create", [
+    ...schedule,
+    "amount",
+  ]);
+  const scheduleKind = schemaAt(lab.catalog, "scenario_create", [
+    ...schedule,
+    "kind",
+  ]);
+  const publishedKinds = (scheduleKind?.enum ?? []).filter(
+    (v): v is Disturbance["kind"] =>
+      v === "demand_spike" || v === "supplier_loss",
+  );
+  const disturbanceBounds = {
+    maxItems: scheduleList?.maxItems ?? disturbanceLimits.maxItems,
+    amountMin: scheduleAmount?.minimum ?? disturbanceLimits.amountMin,
+    amountMax: scheduleAmount?.maximum ?? disturbanceLimits.amountMax,
+  };
+  const scheduleErrors = (spec: Scenario) =>
+    disturbanceErrors(
+      spec.disturbances ?? [],
+      spec.horizon,
+      disturbanceBounds.amountMax,
+    );
   const disabled = !lab.api || lab.busy;
   const forkLength = branch ? Math.max(0, branch.spec.horizon - tick) : 0;
 
@@ -327,6 +579,13 @@ export default function App() {
   const save = () =>
     perform(async () => {
       if (!lab.api || !selected || !draft) return;
+      if (!draft.name.trim())
+        throw new Error("场景名称不能为空，请填写后再保存。");
+      const invalid = scheduleErrors(draft);
+      if (invalid.length)
+        throw new Error(
+          `外生扰动未通过校验：${invalid.join("；")}。请修正后再保存。`,
+        );
       await lab.api.op("scenario_update", {
         id: selected.id,
         revision: baseRevision,
@@ -344,6 +603,11 @@ export default function App() {
   const create = () =>
     perform(async () => {
       if (!lab.api || !draft) return;
+      const invalid = scheduleErrors(draft);
+      if (invalid.length)
+        throw new Error(
+          `外生扰动未通过校验：${invalid.join("；")}。请修正后再新建场景。`,
+        );
       const record = await lab.api.op("scenario_create", {
         spec: {
           ...draft,
@@ -600,6 +864,7 @@ export default function App() {
             </label>
             {draft && selected ? (
               <form
+                noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
                   save();
@@ -650,6 +915,22 @@ export default function App() {
                       />
                     ))}
                 </div>
+                <DisturbanceEditor
+                  value={draft.disturbances ?? []}
+                  horizon={draft.horizon}
+                  kinds={
+                    publishedKinds.length ? publishedKinds : disturbanceKinds
+                  }
+                  maxItems={disturbanceBounds.maxItems}
+                  amountMin={disturbanceBounds.amountMin}
+                  amountMax={disturbanceBounds.amountMax}
+                  errors={scheduleErrors(draft)}
+                  disabled={disabled}
+                  onChange={(next) => {
+                    setDraft({ ...draft, disturbances: next });
+                    setDirty(true);
+                  }}
+                />
                 {dirty && (
                   <p className="edit-note">
                     {selected.revision !== baseRevision
@@ -834,13 +1115,31 @@ export default function App() {
                     <summary>查看本分支的冻结参数与目标</summary>
                     <dl>
                       {Object.entries(branch.spec)
-                        .filter(([k]) => !["name", "description"].includes(k))
+                        .filter(
+                          ([k]) =>
+                            !["name", "description", "disturbances"].includes(
+                              k,
+                            ),
+                        )
                         .map(([k, v]) => (
                           <div key={k}>
                             <dt>{labels[k] ?? k}</dt>
                             <dd>{v}</dd>
                           </div>
                         ))}
+                      <div>
+                        <dt>外生扰动</dt>
+                        <dd>
+                          {branch.spec.disturbances?.length
+                            ? branch.spec.disturbances
+                                .map(
+                                  (d) =>
+                                    `T${d.tick} ${disturbanceLabel[d.kind]} ${d.amount}`,
+                                )
+                                .join("；")
+                            : "无外生扰动"}
+                        </dd>
+                      </div>
                       {branch.provenance.goal &&
                         Object.entries(branch.provenance.goal).map(([k, v]) => (
                           <div key={k}>
@@ -881,7 +1180,9 @@ export default function App() {
                     T{tick}
                   </output>
                 </label>
-                <div className="state-grid">
+                <div
+                  className={`state-grid ${branch.trajectory.final_state.lost > 0 ? "has-loss" : ""}`}
+                >
                   {(["inventory", "cash", "shortage", "spent"] as const).map(
                     (key) => (
                       <div key={key}>
@@ -891,6 +1192,14 @@ export default function App() {
                         </strong>
                       </div>
                     ),
+                  )}
+                  {branch.trajectory.final_state.lost > 0 && (
+                    <div>
+                      <span>{labels.lost}</span>
+                      <strong data-testid="state-lost">
+                        {frame.state.lost}
+                      </strong>
+                    </div>
                   )}
                 </div>
                 <div className="events">

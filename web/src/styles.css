@@ -345,6 +345,51 @@ code,
 .parameter-grid .field {
   margin-bottom: 13px;
 }
+.disturbance-editor {
+  border-top: 1px solid var(--line);
+  margin: 4px 0 14px;
+  padding-top: 13px;
+}
+.disturbance-heading {
+  margin-bottom: 7px;
+}
+.disturbance-heading h3 {
+  font-size: 12px;
+  color: #ccd5dc;
+}
+.disturbance-editor > p {
+  margin-bottom: 10px;
+}
+.disturbance-list {
+  list-style: none;
+  margin: 0 0 11px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.disturbance-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 66px 29px;
+  gap: 7px;
+  align-items: end;
+}
+.disturbance-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.disturbance-row label > span {
+  font-size: 10px;
+  color: #8ea1ac;
+}
+.disturbance-row input,
+.disturbance-row select {
+  font-size: 11px;
+  padding: 6px 7px;
+  min-height: 32px;
+}
 .row-between {
   display: flex;
   align-items: center;
@@ -584,6 +629,11 @@ details code {
   height: 2px;
   display: inline-block;
 }
+.chart-legend .disturbance-legend i {
+  width: 2px;
+  height: 12px;
+  background: #efa5a0;
+}
 .chart-legend .unit {
   margin-left: auto;
   color: #778b99;
@@ -607,6 +657,11 @@ details code {
   stroke: #6ce1dc80;
   stroke-width: 1;
   stroke-dasharray: 4 4;
+}
+.disturbance-line {
+  stroke: #efa5a0;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
 }
 .trace svg rect {
   cursor: pointer;
@@ -639,6 +694,9 @@ details code {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   margin: 20px 0 24px;
+}
+.state-grid.has-loss {
+  grid-template-columns: repeat(5, 1fr);
 }
 .state-grid > div {
   padding: 0 15px;

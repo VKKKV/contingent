@@ -1,4 +1,10 @@
 export type Action = "wait" | "order_standard" | "order_express";
+export type DisturbanceKind = "demand_spike" | "supplier_loss";
+export interface Disturbance {
+  tick: number;
+  kind: DisturbanceKind;
+  amount: number;
+}
 export interface Scenario {
   name: string;
   description: string | null;
@@ -12,6 +18,7 @@ export interface Scenario {
   express_cost: number;
   standard_lead: number;
   express_lead: number;
+  disturbances: Disturbance[];
 }
 export interface Goal {
   max_shortage: number;
@@ -27,6 +34,7 @@ export interface State {
   delivered: number;
   shortage: number;
   spent: number;
+  lost: number;
   shipments: { due_tick: number; quantity: number }[];
 }
 export interface Frame {
@@ -118,9 +126,12 @@ export interface JsonSchema {
   maximum?: number;
   minLength?: number;
   maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
   default?: unknown;
   enum?: unknown[];
   anyOf?: JsonSchema[];
+  items?: JsonSchema;
 }
 export interface Capability {
   name: string;
@@ -236,16 +247,35 @@ export class Api {
     return body.data;
   }
 }
+function deref(
+  root: JsonSchema | undefined,
+  schema: JsonSchema | undefined,
+): JsonSchema | undefined {
+  if (schema?.$ref) return root?.$defs?.[schema.$ref.split("/").pop() ?? ""];
+  return schema;
+}
+/** Walk a capability input schema by property names; "[]" descends into items. */
+export function schemaAt(
+  catalog: Capability[],
+  operation: string,
+  path: readonly string[],
+): JsonSchema | undefined {
+  const root = catalog.find((c) => c.name === operation)?.input_schema;
+  if (!root) return undefined;
+  let schema: JsonSchema | undefined = root;
+  for (const step of path) {
+    schema = deref(root, schema);
+    if (!schema) return undefined;
+    schema = step === "[]" ? schema.items : schema.properties?.[step];
+  }
+  return deref(root, schema);
+}
 export function schemaFields(
   catalog: Capability[],
   operation: string,
   field?: string,
 ): Record<string, JsonSchema> {
-  const root = catalog.find((c) => c.name === operation)?.input_schema;
-  if (!root) return {};
-  let schema = field ? root.properties?.[field] : root;
-  if (schema?.$ref) schema = root.$defs?.[schema.$ref.split("/").pop() ?? ""];
-  return schema?.properties ?? {};
+  return schemaAt(catalog, operation, field ? [field] : [])?.properties ?? {};
 }
 export const isTerminal = (status: Job["status"]) =>
   ["succeeded", "failed", "cancelled", "interrupted"].includes(status);
@@ -260,6 +290,10 @@ export const actionLabel: Record<string, string> = {
   wait: "等待",
   order_standard: "标准订货",
   order_express: "加急订货",
+};
+export const disturbanceLabel: Record<DisturbanceKind, string> = {
+  demand_spike: "需求激增",
+  supplier_loss: "供应损失",
 };
 export const modeLabel: Record<Branch["mode"], string> = {
   forward: "正向",

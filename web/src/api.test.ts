@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { actionLabel, frameAtTick, isTerminal, schemaFields } from "./api";
+import {
+  actionLabel,
+  disturbanceLabel,
+  frameAtTick,
+  isTerminal,
+  schemaAt,
+  schemaFields,
+} from "./api";
 import type { Branch, Capability, Frame, Job } from "./api";
-import App from "./App";
+import App, { disturbanceErrors } from "./App";
 
 // Pure unit fixtures; no fake HTTP backend or synthetic product state.
 describe("capability-driven forms", () => {
@@ -83,6 +90,115 @@ describe("trajectory and job presentation", () => {
       "order_standard",
       "wait",
     ]);
+  });
+});
+
+describe("exogenous disturbance schedule", () => {
+  it("labels both disturbance kinds in Chinese", () => {
+    expect(disturbanceLabel).toEqual({
+      demand_spike: "需求激增",
+      supplier_loss: "供应损失",
+    });
+  });
+  it("resolves the nested item bounds published by the capability schema", () => {
+    const catalog: Capability[] = [
+      {
+        name: "scenario_create",
+        description: "",
+        mutating: true,
+        input_schema: {
+          properties: { spec: { $ref: "#/$defs/Scenario" } },
+          $defs: {
+            Scenario: {
+              properties: {
+                disturbances: {
+                  type: "array",
+                  maxItems: 10,
+                  items: { $ref: "#/$defs/Disturbance" },
+                },
+              },
+            },
+            Disturbance: {
+              properties: {
+                tick: { type: "integer", minimum: 1, maximum: 10 },
+                amount: { type: "integer", minimum: 1, maximum: 200 },
+              },
+            },
+          },
+        },
+      },
+    ];
+    expect(
+      schemaAt(catalog, "scenario_create", ["spec", "disturbances"])?.maxItems,
+    ).toBe(10);
+    expect(
+      schemaAt(catalog, "scenario_create", [
+        "spec",
+        "disturbances",
+        "[]",
+        "amount",
+      ]),
+    ).toEqual({ type: "integer", minimum: 1, maximum: 200 });
+    expect(
+      schemaAt(catalog, "scenario_create", ["spec", "missing", "[]"]),
+    ).toBeUndefined();
+  });
+  it("accepts a bounded, distinct schedule", () => {
+    expect(
+      disturbanceErrors(
+        [
+          { tick: 1, kind: "demand_spike", amount: 5 },
+          { tick: 3, kind: "supplier_loss", amount: 40 },
+        ],
+        5,
+        200,
+      ),
+    ).toEqual([]);
+  });
+  it("blocks a tick beyond the horizon and reports the offending row", () => {
+    const errors = disturbanceErrors(
+      [{ tick: 6, kind: "supplier_loss", amount: 10 }],
+      5,
+      200,
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("第 1 条");
+    expect(errors[0]).toContain("1–5");
+  });
+  it("caps a demand spike tighter than a supplier loss", () => {
+    expect(
+      disturbanceErrors(
+        [{ tick: 2, kind: "demand_spike", amount: 21 }],
+        5,
+        200,
+      )[0],
+    ).toContain("1–20");
+    expect(
+      disturbanceErrors(
+        [{ tick: 2, kind: "supplier_loss", amount: 150 }],
+        5,
+        200,
+      ),
+    ).toEqual([]);
+    expect(
+      disturbanceErrors(
+        [{ tick: 2, kind: "supplier_loss", amount: 250 }],
+        5,
+        200,
+      )[0],
+    ).toContain("1–200");
+  });
+  it("rejects a duplicated tick and kind", () => {
+    const errors = disturbanceErrors(
+      [
+        { tick: 2, kind: "demand_spike", amount: 5 },
+        { tick: 2, kind: "demand_spike", amount: 6 },
+      ],
+      5,
+      200,
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("第 2 条");
   });
 });
 
