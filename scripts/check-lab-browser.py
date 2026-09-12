@@ -77,6 +77,14 @@ async def acceptance(url, token, out):
                     assert response.ok, (operation, await response.text())
                     return (await response.json())["data"]
 
+                async def run(testid, operation, branch_key="branch"):
+                    result = await finish(await click_operation(testid, operation))
+                    branch = result[branch_key] if branch_key == "branch" else result[branch_key][0]
+                    await expect(page.get_by_test_id(f"branch-{branch['id']}")).to_have_attribute(
+                        "aria-pressed", "true", timeout=30000
+                    )
+                    return result, branch
+
                 original_id = await page.get_by_test_id("scenario-select").input_value()
                 await page.get_by_test_id("scenario-name").fill("Browser acceptance")
                 created = await click_operation("new-scenario", "scenario_create")
@@ -86,14 +94,6 @@ async def acceptance(url, token, out):
                 assert saved["revision"] == 2 and saved["id"] != original_id
                 await expect(page.get_by_test_id("save-scenario")).to_be_disabled()
                 checks.append("browser creates, edits and reads back scenario")
-
-                async def run(testid, operation, branch_key="branch"):
-                    result = await finish(await click_operation(testid, operation))
-                    branch = result[branch_key] if branch_key == "branch" else result[branch_key][0]
-                    await expect(page.get_by_test_id(f"branch-{branch['id']}")).to_have_attribute(
-                        "aria-pressed", "true", timeout=30000
-                    )
-                    return result, branch
 
                 await page.get_by_test_id("run-name").fill("Wait baseline")
                 _, baseline = await run("run-forward", "run_forward")
@@ -329,6 +329,85 @@ async def acceptance(url, token, out):
                     ), width
                     await page.screenshot(path=str(out / f"viewport-{width}.png"), full_page=True)
                 checks.append("desktop/768px/390px layout without horizontal page overflow")
+
+                # Exogenous disturbances: declare a real schedule in the browser editor, then
+                # prove the kernel applies it, conserves the destroyed goods and round-trips it.
+                await page.set_viewport_size({"width": 1440, "height": 1050})
+                await page.get_by_test_id("scenario-name").fill("Disturbance acceptance")
+                await page.get_by_test_id("horizon").fill("3")
+                scheduled = await click_operation("new-scenario", "scenario_create")
+                assert scheduled["revision"] == 1 and scheduled["spec"]["disturbances"] == []
+                # Wait for the create's own refresh to settle; a later edit must not be
+                # overwritten by the post-response reload of the form.
+                await expect(page.get_by_test_id("save-scenario")).to_be_disabled()
+                await expect(page.get_by_test_id("disturbance-count")).to_have_text("0")
+                await expect(page.get_by_test_id("disturbance-empty")).to_be_visible()
+                await page.get_by_test_id("disturbance-add").click()
+                await page.get_by_test_id("disturbance-tick-0").fill("2")
+                await page.get_by_test_id("disturbance-kind-0").select_option("demand_spike")
+                await page.get_by_test_id("disturbance-amount-0").fill("3")
+                await page.get_by_test_id("disturbance-add").click()
+                await page.get_by_test_id("disturbance-tick-1").fill("3")
+                await page.get_by_test_id("disturbance-kind-1").select_option("supplier_loss")
+                await page.get_by_test_id("disturbance-amount-1").fill("40")
+                await expect(page.get_by_test_id("disturbance-count")).to_have_text("2")
+                schedule = [
+                    {"tick": 2, "kind": "demand_spike", "amount": 3},
+                    {"tick": 3, "kind": "supplier_loss", "amount": 40},
+                ]
+                stored = await click_operation("save-scenario", "scenario_update")
+                await expect(page.get_by_test_id("save-scenario")).to_be_disabled()
+                assert stored["revision"] == 2, stored
+                assert stored["spec"]["disturbances"] == schedule, stored["spec"]
+                # A row that falls outside the horizon is refused visibly and never sent.
+                await page.get_by_test_id("horizon").fill("2")
+                await expect(page.get_by_test_id("disturbance-errors")).to_contain_text("周期须为")
+                await page.get_by_test_id("save-scenario").click()
+                await expect(page.get_by_test_id("error-banner")).to_contain_text(
+                    "外生扰动未通过校验"
+                )
+                await page.get_by_role("button", name="关闭错误").click()
+                await page.get_by_test_id("horizon").fill("3")
+                await expect(page.get_by_test_id("disturbance-errors")).to_be_hidden()
+                # Discard the local edits the way an operator would: the saved schedule must
+                # reload into the editor and the forward run only uses the saved revision.
+                await page.get_by_role("button", name="放弃修改，读取最新版本").click()
+                await expect(page.get_by_test_id("save-scenario")).to_be_disabled()
+                await expect(page.get_by_test_id("disturbance-count")).to_have_text("2")
+                await expect(page.get_by_test_id("disturbance-tick-1")).to_have_value("3")
+                assert (await op("scenario_list"))["items"]
+                await page.get_by_test_id("run-name").fill("Disturbance run")
+                _, disturbed = await run("run-forward", "run_forward")
+                assert disturbed["trajectory"]["rule_version"] == "supply-chain.v2"
+                assert disturbed["provenance"]["rule_version"] == "supply-chain.v2"
+                final = disturbed["trajectory"]["final_state"]
+                assert final["lost"] == 40, final
+                assert final["shortage"] == 3, final
+                assert final["delivered"] + final["shortage"] == 3 * 4 + 3
+                events = [
+                    event for frame in disturbed["trajectory"]["frames"] for event in frame["events"]
+                ]
+                assert any("disturbance demand_spike at tick 2: demand 4 -> 7" in e for e in events)
+                assert any("declared 40, lost 40, stock 40 -> 0" in e for e in events)
+                await expect(page.get_by_test_id("disturbance-legend")).to_be_visible()
+                await expect(page.get_by_test_id("disturbance-marker-2")).to_have_count(1)
+                await expect(page.get_by_test_id("disturbance-marker-3")).to_have_count(1)
+                await page.get_by_test_id("timeline-slider").fill("3")
+                await expect(page.get_by_test_id("state-lost")).to_have_text("40")
+                exported = await op("branch_export", id=disturbed["id"])
+                assert exported["branch"]["spec"]["disturbances"] == schedule
+                reimported = await op("branch_import", bundle=exported)
+                assert reimported["spec"]["disturbances"] == schedule
+                assert reimported["trajectory"] == disturbed["trajectory"]
+                # The schedule editor is the widest new control; it must not break narrow layouts.
+                for width in (768, 390):
+                    await page.set_viewport_size({"width": width, "height": 1000})
+                    assert await page.evaluate(
+                        "document.documentElement.scrollWidth <= innerWidth + 1"
+                    ), width
+                checks.append(
+                    "browser declares a real disturbance schedule, runs it and round-trips it"
+                )
                 assert not errors, errors
                 checks.append("no uncaught browser JavaScript errors")
                 return {
