@@ -359,6 +359,10 @@ async def acceptance(url, token, out):
                 await expect(page.get_by_test_id("save-scenario")).to_be_disabled()
                 assert stored["revision"] == 2, stored
                 assert stored["spec"]["disturbances"] == schedule, stored["spec"]
+                # The editor converges on the saved revision (its own refresh or the next poll).
+                # Wait for that before editing again, otherwise the convergence overwrites the edit.
+                await expect(page.get_by_test_id("disturbance-count")).to_have_text("2")
+                await expect(page.get_by_test_id("disturbance-tick-1")).to_have_value("3")
                 # A row that falls outside the horizon is refused visibly and never sent.
                 await page.get_by_test_id("horizon").fill("2")
                 await expect(page.get_by_test_id("disturbance-errors")).to_contain_text("周期须为")

@@ -32,7 +32,9 @@ npm --prefix web run build
 uv run --project backend --group browser python scripts/check-lab-browser.py   # real Chromium
 ```
 
-Last recorded results: backend 103 passed, frontend 18 passed, browser 17/17 checks, all clean. The
+Last recorded results: backend 103 passed, frontend 18 passed, browser 17/17 checks on two consecutive
+runs after the acceptance script learned to wait for the editor to converge on the saved revision
+(before that, an edit could be overwritten by the app's own post-save refresh and the run flaked). The
 browser script prints its artifact directory (screenshots plus `report.json`); that directory is under
 `/tmp` and is regenerable, while the machine-readable report is committed in the slice record.
 
