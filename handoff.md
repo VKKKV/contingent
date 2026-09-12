@@ -1,8 +1,65 @@
 # TianJi handoff
 
+## M2 slice 1 delivered - exogenous disturbances with recorded replay (2026-09-12)
+
+Status: implemented, verified and committed on branch `feat/world-simulation-lab`. Nothing was
+pushed. Task record (prd, executable contract, verification, browser report) lives at
+`.trellis/tasks/09-12-m2-exogenous-disturbances/`; it is archived by the Trellis archive commit that
+follows this one.
+
+### What this slice delivers
+
+- Scenario specification gains a bounded, explicit `disturbances` schedule: `demand_spike` (1..20) and
+  `supplier_loss` (1..200), at most ten entries, at most one per tick and kind, and no tick beyond
+  the horizon. There is no random number generator and no seed, so replay never needs a draw log.
+- Kernel order inside a turn: the actor's action executes, the clock advances and due shipments
+  arrive, the exogenous events declared for that tick apply, then demand for that tick is served.
+  A declared loss is clamped to the remaining supplier stock and never carries forward. Because the
+  order executes first, buying ahead of a declared disruption protects those goods - intended
+  planning pressure, documented in `docs/laboratory.md`.
+- Conservation gained the explicit `lost` account, and cumulative-demand accounting now includes
+  declared spikes, so the executable invariants stay exact.
+- The rule label is derived from the frozen specification: empty schedule = `supply-chain.v1`,
+  non-empty = `supply-chain.v2`. `_verify_branch` rejects a branch whose label or provenance
+  contradicts its specification instead of relabelling it.
+- No new operations: HTTP, MCP and the browser editor all read the same capability schema, and the
+  browser's schedule editor validates locally while the server stays authoritative.
+- Pre-slice bundles still import and replay under v1 semantics (the digest covers the supplied branch
+  object, so missing `disturbances`/`lost` keys remain valid).
+
+### Verification evidence (2026-09-12)
+
+- backend: 103 pytest passed; `ruff check` + `ruff format --check` clean.
+- frontend: 18 vitest passed; prettier clean; real `npm run build` ok.
+- real browser acceptance (Chromium 151.0.7922.34, isolated data directory): 17 checks passed - the
+  16 M1 checks plus the schedule editor, client-side rejection, timeline markers, `lost`, the real
+  forward run on a scheduled scenario, and export/import round-trip. Report:
+  `.trellis/tasks/09-12-m2-exogenous-disturbances/research/browser-acceptance-m2.json`.
+- MCP path verified through the official SDK: scheduled scenario created and run through the adapter
+  returns `rule_version = supply-chain.v2` with the real loss.
+- Legacy Rust tree untouched; the 8 existing `runs/*.sqlite3` files untouched.
+
+### Known limits of this slice
+
+- Disturbances are an explicit schedule only. No stochastic draws, no probability output, and no
+  claim that a schedule describes the real world.
+- Still a single director actor: kernel `observe` role projections exist but are not deployed
+  authorization, and there is no adjudication record.
+- The schedule cannot reference anything but the two declared event kinds; scenario packs, evidence
+  initialization and maps remain M3 work.
+
+### Next slice (not started)
+
+Multi-actor private observation with independent adjudication, keeping the same-model forward
+verification for goal plans, plus baseline/sensitivity experiments across schedules. Confirmation
+gates remain: model provider/budget, legacy data migration, remote deployment and real-world action
+integration.
+
+---
+
 ## M1 delivered - bidirectional world simulation laboratory (2026-09-10)
 
-Status: the approved TypeScript/Python first slice (M1) is implemented and verified on branch `feat/world-simulation-lab` (base `a5a3c656`). **Nothing is committed yet; the task worktree is intentionally uncommitted** - commit plan below. Legacy Rust (`src/`, Cargo files, `profiles/`) and `runs/*.sqlite3` are untouched.
+Status: the approved TypeScript/Python first slice (M1) is implemented and verified on branch `feat/world-simulation-lab` (base `a5a3c656`). **Committed on 2026-09-12** as `b3ddef8`, `8532815`, `39aeef8`, `b8ed4ff`, `cd1f616` (see the M2 slice-1 section above); nothing was pushed. Legacy Rust (`src/`, Cargo files, `profiles/`) and `runs/*.sqlite3` remain untouched.
 
 ### What M1 delivers
 
@@ -31,23 +88,21 @@ Status: the approved TypeScript/Python first slice (M1) is implemented and verif
 
 Fictional deterministic model; no probabilities, LLM or chat; single local director token (kernel role projections are not deployed authorization); no SSE/pause-resume; loopback single user. Suggested follow-up: a delayed-`branch_get` regression for the stale-branch class (currently covered by design + spec, not an automated browser check).
 
-### Uncommitted worktree and proposed commit plan
+### Commit plan (executed 2026-09-12)
 
-`git status`: modified `.gitignore`, `.trellis/spec/backend/index.md`, `README.md`, `handoff.md`, `plan.md`; untracked `.trellis/spec/lab/`, `.trellis/tasks/09-10-world-simulation-lab/`, `backend/`, `docs/`, `scripts/check-lab-browser.py`, `web/`.
-
-Proposed commits (execute only after one-shot confirmation; never push):
-
-1. `feat(lab): add Python simulation service, HTTP API and MCP adapter` - backend/
-2. `feat(lab): add React workbench for forward/goal/branch workflows` - web/
-3. `feat(lab): add real-browser acceptance script` - scripts/check-lab-browser.py
-4. `docs: record laboratory direction and operator guide` - README.md, plan.md, handoff.md, docs/, .gitignore
-5. `chore(trellis): record world-simulation-lab task and lab spec` - .trellis/
+The five planned commits were executed on branch `feat/world-simulation-lab` with no push:
+`b3ddef8` (backend), `8532815` (web), `39aeef8` (browser acceptance script), `b8ed4ff`
+(root docs, guide, ignore rules), `cd1f616` (Trellis task and lab spec). The follow-up documentation
+cleanup commit is `f69108f`.
 
 ### Resume
 
 - Task: `.trellis/tasks/09-10-world-simulation-lab/` (status `in_progress`; `python3 .trellis/scripts/task.py list` shows it).
 - Run: see `docs/laboratory.md` (build, serve, MCP setup, browser acceptance).
-- Next slice (M2, not started): exogenous disturbances and multi-actor private observation/adjudication while keeping same-model forward verification for goal plans. Confirmation gates remain: model provider/budget, legacy data migration, remote deployment, real-world action integration.
+- Next slice: exogenous disturbances were delivered by `09-12-m2-exogenous-disturbances` (see the top
+  section). Multi-actor private observation/adjudication remains next, keeping same-model forward
+  verification for goal plans. Confirmation gates remain: model provider/budget, legacy data
+  migration, remote deployment, real-world action integration.
 
 ---
 

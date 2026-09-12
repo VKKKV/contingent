@@ -21,7 +21,7 @@ SQLite and the authentication token live in the chosen directory, separate from 
 
 ## Browser workflow
 
-1. Connect, select a scenario, edit its name and bounded parameters, then save or create a new scenario. Saving uses a revision check; existing branches retain their old specification.
+1. Connect, select a scenario, edit its name and bounded parameters (including the exogenous disturbance schedule), then save or create a new scenario. Saving uses a revision check; existing branches retain their old specification.
 2. Choose an action for each tick and run forward. The default is waiting, not an unstated intelligent policy. Inspect inventory, shortages, cash, shipments and event logs by moving the recorded time cursor.
 3. Specify terminal goals and a search-node budget. Run goal search. Inspect candidate branches and the search completeness indicator; every returned candidate has been replayed with the same forward model.
 4. Fork at the selected recorded tick, change the remaining action sequence, then compare outcomes under identical frozen specifications. The original branch is immutable.
@@ -31,16 +31,27 @@ A new scenario with no branches is an actual empty state. Job status is stored b
 
 ## Model and forward/goal semantics
 
-`backend/tianji_lab/kernel.py` is a deterministic integer transition model (`supply-chain.v1`). There are three actions: `wait`, `order_standard`, `order_express`. An order buys one shipment from finite supplier stock and consumes cash. A turn purchases, advances the clock, receives goods now due, then serves fixed demand. Lead times and per-shipment costs are explicit scenario parameters. There are no sales revenues or invented market dynamics.
+`backend/tianji_lab/kernel.py` is a deterministic integer transition model. There are three actions: `wait`, `order_standard`, `order_express`. An order buys one shipment from finite supplier stock and consumes cash. A turn purchases, advances the clock, receives goods now due, applies the exogenous events declared for that tick, then serves that tick's demand. Lead times and per-shipment costs are explicit scenario parameters. There are no sales revenues or invented market dynamics.
 
-Unmet demand is cumulative lost demand, **not** a recoverable backlog. `delivered` means units served to customers, not shipments received. There are no random disturbances in M1, so a seed would be misleading bookkeeping. Determinism comes from frozen rules, scenario, complete actions and canonical state hashes.
+Unmet demand is cumulative lost demand, **not** a recoverable backlog. `delivered` means units served to customers, not shipments received. `lost` counts goods destroyed by an exogenous supplier loss: still part of the conserved total, never usable again.
+
+### Exogenous disturbances
+
+Disturbances are an explicit, operator-visible schedule inside the scenario specification. There is no random number generator and no seed, so reproducibility never depends on hidden bookkeeping and a replay never needs a draw log. The schedule is frozen with the scenario revision and travels inside exported bundles. Two kinds exist:
+
+- `demand_spike` (1..20): the declared tick's demand is `demand_per_tick + amount`.
+- `supplier_loss` (1..200): that many units of supplier stock are destroyed, clamped to what remains; a shortfall is not carried to later ticks.
+
+At most one entry per tick and kind, at most ten entries, and a tick beyond the horizon is rejected rather than silently ignored. Events apply after the turn's purchase and after the shipments due at that tick have arrived, and before demand is served. Because the order executes first, buying ahead of a declared disruption moves goods out of supplier custody into an in-transit shipment and protects them; the schedule is visible and frozen, so goal search is expected to plan around it.
 
 Executable invariants include:
 
-- inventory + in-transit goods + customer deliveries + supplier stock = initial total goods;
+- inventory + in-transit goods + customer deliveries + supplier stock + lost = initial total goods;
 - cash + spent = initial cash;
-- cumulative deliveries + shortage = elapsed ticks × per-tick demand;
+- cumulative deliveries + shortage = elapsed ticks × per-tick demand + declared demand spikes so far;
 - purchases, prices, shipment quantities and arrival times must be legal.
+
+The rule label is derived from the specification, not claimed by a caller: an empty schedule is `supply-chain.v1` semantics, a non-empty schedule is `supply-chain.v2`. A trajectory or bundle that disagrees with its frozen specification is rejected rather than relabelled.
 
 Goal-directed search is currently bounded depth-first enumeration of legal action sequences in this finite transition system, followed by forward verification. This is **not** reversing time, arbitrary natural-language causal inference, backward induction in a multiplayer game, or a guarantee of the best real-world decision. It ranks up to three plans by spend, then shortage, then lexicographic actions. State deduplication retains enough equivalent prefixes for the top-three ranking.
 
@@ -104,8 +115,10 @@ uv run --project backend --group browser python scripts/check-lab-browser.py
 
 The script creates only local fictional test experiments in a temporary directory and stops its server. Screenshots and a JSON report remain in the printed artifact directory. A Playwright platform warning is distinct from test failure; unsupported host distributions need actual browser execution before claiming support.
 
-## Next slices and confirmation gates
+## Delivered slices and next work
 
-M1 establishes the full forward/goal-search/branch/replay interaction, not a final product. Next model work should introduce meaningful exogenous disturbances, competing actors with private observations, explicit objectives and independent adjudication, plus baseline and sensitivity experiments. Retain the bidirectional core rather than regressing into a feed dashboard.
+M1 established the full forward/goal-search/branch/replay interaction. The current slice adds the explicit exogenous disturbance schedule (demand spikes and supplier losses) with recorded replay, conserved losses and a rule label derived from the frozen specification, so a conditional future now depends on both the actor's decisions and declared outside events. Neither slice is a final product.
+
+Next model work: competing actors with private observation and independent adjudication, baseline and sensitivity experiments across schedules, and eventually a model-backed director proposal loop. Seeded randomness would only be added together with a recorded draw log that the import verifier consumes. Retain the bidirectional core rather than regressing into a feed dashboard.
 
 A model-backed conversational co-pilot can propose structured operations and explain traces, but must not silently change rules, own both player and referee, or claim calibrated probabilities. Provider/cost choices, legacy cleanup or data migration, remote deployment and real-world action integrations remain explicit user confirmation gates.

@@ -7,6 +7,7 @@ TianJi is a **bidirectional world simulation laboratory** (双向世界推演实
 The new local-first workbench lives in `web/` (React/TypeScript/Vite) and `backend/` (Python/FastAPI/Pydantic/SQLite). Web and external agents share a validated operation registry and an official MCP stdio adapter. The initial executable slice is a **fictional, deterministic civilian supply chain**, not a general world simulator or a calibrated forecasting system.
 
 - Edit bounded scenario parameters and per-turn actions; run forward trajectories.
+- Declare an explicit exogenous disturbance schedule (demand spikes and supplier losses) that is frozen with the scenario, conserved in a `lost` account and replayed exactly. There is no random number generator and no seed.
 - Search from terminal goals and constraints; distinguish feasible plans, finite-model no solution, and incomplete search. Replay all returned plans with the forward model.
 - Fork recorded ticks, compare frozen assumptions, inspect events/state hashes, export and semantically validate standalone JSON bundles.
 - Operate the same scenarios, jobs, branches and desired workspace state through HTTP and MCP. The browser polls branch/tick/panel changes; a successful API call is not a browser rendering acknowledgement.

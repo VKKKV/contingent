@@ -68,6 +68,8 @@ Before writing Rust code:
 
 The per-phase design drafts (`phase-*.md`) were completed and removed during the 2026-09 documentation cleanup as superseded history. They remain recoverable from Git history; do not re-add them as current authority.
 
+New Python/TypeScript work is scoped by [../lab/index.md](../lab/index.md) and the active task contract under `.trellis/tasks/`.
+
 ---
 
 **Language**: All documentation should be written in **English**.

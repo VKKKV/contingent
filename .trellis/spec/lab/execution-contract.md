@@ -2,7 +2,7 @@
 
 ## 1. Scope / trigger
 
-Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario, branch, job, workspace or import schema changes. The initial model is fictional `supply-chain.v1`; all external clients are local directors. Participant projections in `kernel.observe` are not deployed per-user authorization.
+Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario, branch, job, workspace or import schema changes. The model is a fictional `supply-chain` kernel whose rule label is derived from the frozen specification: an empty exogenous-disturbance schedule is `supply-chain.v1`, a non-empty one is `supply-chain.v2`. All external clients are local directors. Participant projections in `kernel.observe` are not deployed per-user authorization.
 
 ## 2. Signatures
 
@@ -23,7 +23,7 @@ The workspace stores selected scenario (including empty scenarios), selected bra
 
 Jobs freeze scenario/spec/revision on enqueue. One supervisor spawns a bounded subprocess and commits results only while job status is running. Queue max32, search max50000, subprocess wall limit30s. Cancellation prevents branch commit; shutdown/restart interrupts running work, queued jobs survive. Do not use the HTTP event loop for CPU search.
 
-Replay bundles prove internal consistency, not origin authenticity. Reconstruct initial/fork state from frozen spec and complete prefix actions; then replay every continuation frame, event, goal predicate and hash. Retain `imported_parent_id` across repeated export/import; discard live foreign-key parent links on external imports.
+Replay bundles prove internal consistency, not origin authenticity. Reconstruct initial/fork state from frozen spec and complete prefix actions; then replay every continuation frame, event, goal predicate and hash. Retain `imported_parent_id` across repeated export/import; discard live foreign-key parent links on external imports. A bundle's declared `rule_version` and provenance must agree with `rule_version_for(spec)`; a schedule-bearing branch labelled with the pre-disturbance rules is rejected, never relabelled. Bundles exported before the disturbance slice (no `disturbances`, no `lost` keys) remain valid and replay under v1 semantics, because the digest covers the supplied branch object rather than a re-serialized model.
 
 ## 4. Validation and error matrix
 
@@ -48,12 +48,12 @@ Bad: forge a fork start while recomputing outer digest; import must reject again
 
 ## 6. Required tests and assertion points
 
-- `tests/test_kernel.py`: conservation, illegal actions, deterministic replay, bounded goals/search vs finite exhaustive oracle, observation projections.
-- `tests/test_service.py`, `test_import_metadata.py`: frozen versions, idempotency, continuation prefix and goal replay, repeated import, revision bounds and no partial write.
+- `tests/test_kernel.py`: conservation, illegal actions, deterministic replay, bounded goals/search vs finite exhaustive oracle, observation projections, exogenous disturbance ordering (purchase, arrivals, event, demand), loss clamping without carry-forward, schedule bounds rejection, rule-label derivation, and schedule-aware search verified by replay.
+- `tests/test_service.py`, `test_import_metadata.py`: frozen versions, idempotency, continuation prefix and goal replay, repeated import, revision bounds and no partial write, schedule frozen across later revisions, pre-slice bundles importing under v1, and mislabelled schedules rejected.
 - `tests/test_lifecycle.py`: second owner cannot interrupt live jobs; cancellation leaves no result branch and next queued work completes.
 - `tests/test_workspace.py`: scenario/branch/compare selection, empty scenarios, contradictory IDs, selected comparison invariants.
-- `tests/test_api.py`, `test_mcp.py`: auth/origin/body bounds, actual CLI HTTP service and official MCP SDK initialization/list/call.
-- `scripts/check-lab-browser.py`: actual Chromium create/edit/run/goal/fork/compare/import/export/cancel, external MCP visible selections, reload without old-job auto-selection, stale human edit preservation, layout and uncaught JS checks.
+- `tests/test_api.py`, `test_mcp.py`: auth/origin/body bounds, actual CLI HTTP service and official MCP SDK initialization/list/call, published capability schema matching the live model.
+- `scripts/check-lab-browser.py`: actual Chromium create/edit/run/goal/fork/compare/import/export/cancel, schedule editing with client-side rejection, timeline markers and `lost`, external MCP visible selections, reload without old-job auto-selection, stale human edit preservation, layout and uncaught JS checks.
 
 Build/test from a new snapshot without `.venv`, `node_modules`, `dist`, cached state or data. Do not use a one-off Vite resolver to bless a broken documented `npm run build` command.
 
