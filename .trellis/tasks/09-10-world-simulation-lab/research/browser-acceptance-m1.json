@@ -1,0 +1,34 @@
+{
+  "checks": [
+    "connect and capability-generated scenario constraints",
+    "browser creates, edits and reads back scenario",
+    "browser forward trajectory, actual time cursor and shortage display",
+    "browser goal search, same-model verified candidates and comparison",
+    "browser recorded-tick fork, changed action, unchanged parent",
+    "browser real JSON download, upload and semantic replay import",
+    "official MCP selects a comparison target rendered by the browser",
+    "official MCP selects an empty scenario without inventing a branch",
+    "MCP registry matches API; external branch/tick/panel visibly applied",
+    "reconnect preserves MCP workspace instead of replaying old job selections",
+    "concurrent scenario edit returns 409 and preserves unsaved human draft",
+    "browser distinguishes incomplete budget from finite-model no solution",
+    "malformed browser import visibly rejected",
+    "browser cancels actual queued/running work",
+    "desktop/768px/390px layout without horizontal page overflow",
+    "no uncaught browser JavaScript errors"
+  ],
+  "api_mcp_operation_count": 16,
+  "search_expanded": 306,
+  "goal_final_state": {
+    "cash": 128,
+    "delivered": 24,
+    "inventory": 4,
+    "shipments": [],
+    "shortage": 0,
+    "spent": 32,
+    "supplier_stock": 24,
+    "tick": 6
+  },
+  "browser": "151.0.7922.34",
+  "artifacts": "/tmp/tianji-browser-vrb3c89z"
+}

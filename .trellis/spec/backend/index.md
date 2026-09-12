@@ -1,5 +1,7 @@
 # Backend Development Guidelines
 
+> Scope: this directory describes the preserved **legacy Rust** implementation. For new Python/TypeScript laboratory code, read [../lab/index.md](../lab/index.md) and the active M1 contract. The user-approved Web-first TS/Python direction supersedes Rust-only/CLI-first constraints for the new directories; it does not delete or migrate the old code.
+
 > Best practices for backend development in this project.
 
 ---
