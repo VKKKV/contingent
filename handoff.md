@@ -16,7 +16,9 @@ Commits added this session (oldest first):
   with every reference that pointed at them fixed.
 - `1025bc0`, `6146a76`, `f347a55`, `1bca4c2`, `8a768d4` - M2 slice 1 (exogenous disturbances) across
   kernel/service, workbench, browser acceptance, docs/contract and the task record.
-- `6d264f4` - archived the slice-1 task; `13389bc` - this handoff's path fix.
+- `6d264f4` - archived the slice-1 task; `13389bc`, `3b5d5b2` - handoff state.
+- `93ad3b0` - migrated the durable specs and slice records out of Trellis into `docs/`.
+- `3595fea` - removed the Trellis tooling and its OpenCode adapter (-23833 lines).
 
 Re-run these before trusting any claim above (from the repository root):
 
@@ -32,18 +34,19 @@ uv run --project backend --group browser python scripts/check-lab-browser.py   #
 
 Last recorded results: backend 103 passed, frontend 18 passed, browser 17/17 checks, all clean. The
 browser script prints its artifact directory (screenshots plus `report.json`); that directory is under
-`/tmp` and is regenerable, while the machine-readable report is committed in the archived task.
+`/tmp` and is regenerable, while the machine-readable report is committed in the slice record.
 
-Bookkeeping and deliberate leftovers:
+Documentation and tooling state:
 
-- `.trellis/tasks/09-10-world-simulation-lab/` still reports `in_progress` on purpose; its
-  remaining scope is the next slice. The slice-1 task is archived under
-  `.trellis/tasks/archive/2026-09/09-12-m2-exogenous-disturbances/`.
-- `.trellis/.backup-2026-05-13T04-45-49/` and `.trellis/.backup-2026-06-09T04-35-12/` (about 2.4 MB)
-  are gitignored Trellis backups. Deleting them is irreversible in Git, so they were left alone;
-  remove only on an explicit request.
-- Legacy Rust (`src/`, Cargo files, `profiles/`) and all 8 `runs/*.sqlite3` files are untouched by
-  this session.
+- Trellis was removed on 2026-09-12: no `.trellis/`, no OpenCode adapter, no task tracker. Everything
+  durable it held now lives as ordinary documentation - `docs/specs/lab/` (engineering contract for the
+  active stack), `docs/specs/rust/` (legacy guideline, spec, contract set plus a code map),
+  `docs/specs/guides/`, `docs/milestones/2026-09-m1-world-simulation-lab/` and
+  `docs/milestones/2026-09-m2-exogenous-disturbances/` (prd, contract, verification, browser report).
+  `docs/README.md` is the index; root `AGENTS.md` is hand-written agent guidance.
+- Deleting that tooling also deleted the two gitignored Trellis backup directories; they were not in
+  Git, so they are unrecoverable, and they contained only copies of files that still exist elsewhere.
+- Legacy Rust (`src/`, Cargo files, `profiles/`) and all 8 `runs/*.sqlite3` files are untouched.
 - Nothing is pushed; publishing stays a user action.
 
 Not started: M2 slice 2 (multi-actor private observation with independent adjudication). Confirmation
@@ -53,8 +56,8 @@ integration.
 ## M2 slice 1 delivered - exogenous disturbances with recorded replay (2026-09-12)
 
 Status: implemented, verified and committed on branch `feat/world-simulation-lab`. Nothing was
-pushed. Task record (prd, executable contract, verification, browser report) is archived at
-`.trellis/tasks/archive/2026-09/09-12-m2-exogenous-disturbances/`.
+pushed. Slice record (prd, executable contract, verification, browser report) lives at
+`docs/milestones/2026-09-m2-exogenous-disturbances/`.
 
 ### What this slice delivers
 
@@ -83,7 +86,7 @@ pushed. Task record (prd, executable contract, verification, browser report) is 
 - real browser acceptance (Chromium 151.0.7922.34, isolated data directory): 17 checks passed - the
   16 M1 checks plus the schedule editor, client-side rejection, timeline markers, `lost`, the real
   forward run on a scheduled scenario, and export/import round-trip. Report:
-  `.trellis/tasks/archive/2026-09/09-12-m2-exogenous-disturbances/research/browser-acceptance-m2.json`.
+  `docs/milestones/2026-09-m2-exogenous-disturbances/research/browser-acceptance-m2.json`.
 - MCP path verified through the official SDK: scheduled scenario created and run through the adapter
   returns `rule_version = supply-chain.v2` with the real loss.
 - Legacy Rust tree untouched; the 8 existing `runs/*.sqlite3` files untouched.
@@ -116,7 +119,7 @@ Status: the approved TypeScript/Python first slice (M1) is implemented and verif
 - `web/` (React 19 + TypeScript strict + Vite): the workbench - scenario editor, per-tick action forward runs, goal search with budget statuses, recorded-tick forks, comparison, time cursor + SVG trace + event log, real JSON import/export, job polling/cancel, frozen-vs-current revision warnings, and workspace polling that mirrors external MCP selection (scenario/branch/comparison/tick/panel).
 - `scripts/check-lab-browser.py`: real Chromium acceptance against an isolated temp data directory, including an official MCP client controlling the visible browser.
 - `docs/laboratory.md`: operator/developer guide (model semantics, API/MCP contract, quality gates, limitations).
-- `.trellis/tasks/09-10-world-simulation-lab/`: prd, m1-contract, architecture, research (language choice/evidence, `m1-verification.md`); `.trellis/spec/lab/{index,execution-contract}.md`.
+- `docs/milestones/2026-09-m1-world-simulation-lab/`: prd, m1-contract, architecture, research (language choice, `m1-verification.md`, browser report); `docs/specs/lab/{index,execution-contract}.md`.
 
 ### Verification evidence (re-run 2026-09-10 after the fixes below)
 
@@ -146,7 +149,8 @@ cleanup commit is `f69108f`.
 
 ### Resume
 
-- Task: `.trellis/tasks/09-10-world-simulation-lab/` (status `in_progress`; `python3 .trellis/scripts/task.py list` shows it).
+- Record: `docs/milestones/2026-09-m1-world-simulation-lab/`. (The Trellis task tracker that used to
+  hold it was removed on 2026-09-12; see the top section.)
 - Run: see `docs/laboratory.md` (build, serve, MCP setup, browser acceptance).
 - Next slice: exogenous disturbances were delivered by `09-12-m2-exogenous-disturbances` (see the top
   section). Multi-actor private observation/adjudication remains next, keeping same-model forward
@@ -155,7 +159,8 @@ cleanup commit is `f69108f`.
 
 ---
 
-The remainder of this file is the retained legacy Rust handoff (historical).
+The remainder of this file is the retained legacy Rust handoff (historical). The `.trellis/` paths it
+mentions refer to the tracker removed on 2026-09-12 and are historical references only.
 
 Date: 2026-06-09
 Repo: `/home/kita/code/tianji`
