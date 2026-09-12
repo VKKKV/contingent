@@ -25,7 +25,7 @@ The inspected sample is deliberately small; it does not establish that Rust is r
 - MiroFish has a Python/Flask backend with Pydantic, CAMEL/OASIS and Zep Cloud dependencies. The lesson is Python research-library integration, not to copy Flask, Zep or a mandatory cloud dependency. Snapshot 39d849138ef254f6c737ab4c4705e5545dbe31d4: https://github.com/666ghj/MiroFish/blob/39d849138ef254f6c737ab4c4705e5545dbe31d4/backend/pyproject.toml
 - Crucix uses JavaScript/Node/Express for a local intelligence application. It supports the viability of a simple JS service, but is not evidence that this stack offers the same modeling ecosystem. Snapshot 3db7068817e0c815df353fa0f19657c85142789d: https://github.com/calesthio/Crucix/blob/3db7068817e0c815df353fa0f19657c85142789d/package.json
 
-Additional simulation-library evidence, when available, is recorded separately in language-evidence.md. No dependency versions or upstream performance claims in these examples become automatic TianJi requirements.
+The separate simulation-library evidence record was removed in the 2026-09 documentation cleanup as superseded history (recover from Git history). No dependency versions or upstream performance claims in these examples become automatic TianJi requirements.
 
 ## Alternatives and costs
 

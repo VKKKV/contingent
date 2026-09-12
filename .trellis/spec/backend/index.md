@@ -62,9 +62,11 @@ Before writing Rust code:
 |------|-------------|
 | [Scoring Spec](./scoring-spec.md) | Deterministic `Im`/`Fa` scoring model: formulas, rationale, deferred work |
 | [Development Plan](./development-plan.md) | Rust migration milestones and guardrails |
-| [Phase 2.2 Worldline Model](./phase-2.2-worldline-model.md) | Worldline data model, FieldKey, Baseline, Blake3 snapshot, divergence (implemented) |
-| [Phase 2.3 Actor Profiles](./phase-2.3-actor-profiles.md) | 3-tier actor profile loading from YAML, ProfileRegistry, dynamic/cross-scenario stubs (implemented) |
+| [Source Feed Management](./source-feed-management.md) | Source registry, fixture sources and health history |
+| [Evaluation Harness](./evaluation-harness.md) | Fixture eval corpus, golden cases and drift checks |
 | [Rust Rewrite Plan](../../plan.md) | Full Rust rewrite vision: Cangjie/Fuxi/Hongmeng/Nuwa architecture, TUI spec, dependency list |
+
+The per-phase design drafts (`phase-*.md`) were completed and removed during the 2026-09 documentation cleanup as superseded history. They remain recoverable from Git history; do not re-add them as current authority.
 
 ---
 

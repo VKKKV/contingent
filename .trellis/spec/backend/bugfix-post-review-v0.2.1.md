@@ -1,6 +1,6 @@
 # Bugfix: Post-Review v0.2.1 (2026-05-17)
 
-Source: `.trellis/reviews/2026-05-17-code-review.md`
+Source: `.trellis/reviews/2026-05-17-code-review.md` (file removed in the 2026-09 documentation cleanup; Git history retains it)
 Scope: 15 critical + 10 high bugs across all subsystems
 
 ---

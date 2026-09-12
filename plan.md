@@ -235,7 +235,7 @@ Files: `src/tui/*`, `src/storage.rs`, `src/worldline/*`
 
 ## 3.5 Cross-Project Borrowings (ShadowBroker v0.9.7 → TianJi)
 
-> Full analysis: `.trellis/reviews/shadowbroker-cross-project-analysis.md`
+> Full analysis: removed in the 2026-09 documentation cleanup; recover from Git history at `.trellis/reviews/shadowbroker-cross-project-analysis.md`.
 > Repo: external ShadowBroker checkout used for historical cross-project analysis
 
 Borrowing adoption status after Phase D/E:
@@ -282,8 +282,8 @@ Borrowing adoption status after Phase D/E:
 **F4. Release readiness check** ✅
 - Verified `cargo build --release` under the 25 MB target.
 - Verified shell completions for bash/zsh/fish and a fixture-based smoke run.
-- Added `RELEASE_CHECKLIST.md`; the current checklist tracks exact binary size,
-  replay/audit smoke output, regression gates, and local-first/no-secrets notes.
+- Added `RELEASE_CHECKLIST.md` (removed in the 2026-09 documentation cleanup); it tracked exact
+  binary size, replay/audit smoke output, regression gates, and local-first/no-secrets notes.
 
 ### Phase G — Roadmap & Spec Authority Refresh (COMPLETE)
 
