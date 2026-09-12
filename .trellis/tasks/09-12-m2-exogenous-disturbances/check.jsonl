@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/09-12-m2-exogenous-disturbances/prd.md", "reason": "Acceptance criteria to verify one by one"}
+{"file": ".trellis/tasks/09-12-m2-exogenous-disturbances/m2-contract.md", "reason": "Exact invariants, event text, rejection cases and browser test ids to check"}
+{"file": ".trellis/tasks/09-10-world-simulation-lab/m1-contract.md", "reason": "M1 behavior that must not regress"}
+{"file": ".trellis/spec/lab/execution-contract.md", "reason": "Error matrix, job lifecycle and required regression tests"}
+{"file": "docs/laboratory.md", "reason": "Documentation must match delivered behavior"}
