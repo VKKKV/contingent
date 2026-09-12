@@ -1,4 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/evaluation-harness.md", "reason": "Evaluation harness and credential-free gate conventions"}
-{"file": ".trellis/spec/docs/phase-f4-release-readiness-check.md", "reason": "Release readiness smoke command and /tmp rules"}
-{"file": ".trellis/spec/backend/contracts/tui-contract.md", "reason": "TUI render and replay behavior constraints"}

@@ -1,6 +1,0 @@
-{"file":".trellis/spec/docs/phase-f3-readme-operator-quickstart-refresh.md","reason":"Check README changes against F3 documentation requirements"}
-{"file":".trellis/spec/docs/phase-f0-roadmap-docs-refresh.md","reason":"Check local-first, credential-free docs conventions"}
-{"file":".trellis/spec/backend/phase-f1-config-doctor-command.md","reason":"Check doctor documentation stays accurate and secret-safe"}
-{"file":".trellis/spec/backend/phase-f2-api-contract-fixtures.md","reason":"Check Phase D/E surfaced contracts are represented correctly"}
-{"file":".trellis/spec/backend/contracts/local-api-contract.md","reason":"Check daemon API endpoint/envelope names"}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Check TUI keybinding and read-only surface wording"}

@@ -1,5 +1,0 @@
-{"file":"plan.md","reason":"Verify implementation against authoritative TUI design and milestone scope."}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Verify migration guardrails and milestone claims remain accurate."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Verify tests, lint, dependencies, and Rust code standards."}
-{"file":".trellis/spec/backend/error-handling.md","reason":"Verify error paths follow project conventions."}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Verify read-only storage-backed TUI semantics."}

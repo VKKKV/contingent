@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "Pre-dev checklist + guideline index for backend layer"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Milestone order, parity guardrails"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Contract fixture verification, test conventions"}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite conventions for schema and query patterns"}
-{"file": ".trellis/spec/backend/contracts/local-api-contract.md", "reason": "API vocabulary must align with storage/CLI field names"}
-{"file": ".trellis/spec/backend/contracts/index.md", "reason": "Contract index for cross-reference"}
-{"file": ".trellis/spec/backend/scoring-spec.md", "reason": "Score field names used in filter and projection logic"}
-{"file": ".trellis/tasks/05-13-milestone-2-storage-history/prd.md", "reason": "Requirements + decisions for this task"}

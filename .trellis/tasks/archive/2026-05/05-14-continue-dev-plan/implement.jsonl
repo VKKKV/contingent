@@ -1,5 +1,0 @@
-{"file":".trellis/spec/backend/index.md","reason":"Backend checklist and relevant contracts for Rust TUI work."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Rust quality, test, and dependency guardrails for TUI changes."}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Read-only persisted TUI semantics and existing Rust TUI MVP contract."}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Milestone 4 TUI scope and deferred Hongmeng/Nuwa boundaries."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Dashboard should reuse current storage/delta read models and existing TUI state/render patterns."}

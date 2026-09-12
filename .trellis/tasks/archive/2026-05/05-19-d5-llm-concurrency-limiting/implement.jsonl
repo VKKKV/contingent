@@ -1,6 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/phase-d5-llm-concurrency-limiting.md", "reason": "D5 backend spec and acceptance criteria"}
-{"file": "plan.md", "reason": "Phase D roadmap showing D5-D8 targets"}
-{"file": "src/llm/client.rs", "reason": "Current LLM client and D4 tests"}
-{"file": "src/llm/config.rs", "reason": "ProviderConfig max_concurrency parsing"}
-{"file": "src/llm/registry.rs", "reason": "ProviderRegistry clone/fallback behavior"}

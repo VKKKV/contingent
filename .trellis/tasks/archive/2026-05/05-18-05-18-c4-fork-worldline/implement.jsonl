@@ -1,8 +1,0 @@
-{"file": "plan.md", "reason": "Authoritative architecture and current Phase C development plan."}
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend pre-development checklist and spec index."}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Rust quality bar, forbidden patterns, and verification expectations."}
-{"file": ".trellis/spec/backend/error-handling.md", "reason": "TianJiError conventions for store persistence failures."}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite store implementation conventions."}
-{"file": ".trellis/spec/backend/phase-c4-fork-worldline.md", "reason": "Task-specific design for WorldlineStore and fork_worldline unification."}
-{"file": ".trellis/spec/backend/phase-2.2-worldline-model.md", "reason": "Worldline data model and snapshot/hash contract."}
-{"file": ".trellis/spec/backend/phase-2.5-nuwa-sandbox.md", "reason": "Nuwa sandbox behavior and fork/COW expectations."}

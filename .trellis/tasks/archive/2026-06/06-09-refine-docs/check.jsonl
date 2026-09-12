@@ -1,5 +1,0 @@
-{"file":".trellis/spec/backend/index.md","reason":"Check documentation language and authority expectations."}
-{"file":".trellis/spec/docs/phase-f0-roadmap-docs-refresh.md","reason":"Check root docs refresh remains documentation-only and updates stale counters/status."}
-{"file":".trellis/spec/docs/phase-f3-readme-operator-quickstart-refresh.md","reason":"Check README examples remain local-first, credential-free, and runnable from repo root."}
-{"file":".trellis/spec/docs/phase-f4-release-readiness-check.md","reason":"Check release checklist remains concise, reproducible, local-first, and no-secrets."}
-{"file":".trellis/spec/docs/phase-g1-roadmap-spec-authority-refresh.md","reason":"Check README and plan.md consistency plus targeted stale-string audit."}

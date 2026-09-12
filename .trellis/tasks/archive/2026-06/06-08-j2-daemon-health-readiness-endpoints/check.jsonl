@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/phase-d3-sqlite-connection-pool.md","reason":"Check readiness endpoint uses the existing SQLite pool and preserves initialized connection behavior."}
-{"file":".trellis/spec/backend/contracts/local-api-contract.md","reason":"Check API response envelopes/resources remain consistent with local API contract style."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check tests and daemon readiness behavior satisfy project quality guidance."}

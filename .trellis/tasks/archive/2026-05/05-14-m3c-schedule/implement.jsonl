@@ -1,5 +1,0 @@
-{"file":".trellis/spec/backend/index.md","reason":"Backend pre-development checklist and relevant contract index for Rust daemon work."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Rust quality bar and test expectations for implementation."}
-{"file":".trellis/spec/backend/error-handling.md","reason":"Project error style for CLI validation and daemon socket failures."}
-{"file":".trellis/spec/backend/contracts/daemon-contract.md","reason":"Defines daemon schedule boundaries, queue semantics, state vocabulary, and non-goals."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Schedule should reuse existing daemon run/socket patterns rather than duplicating logic."}

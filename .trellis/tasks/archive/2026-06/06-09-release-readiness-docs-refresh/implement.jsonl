@@ -1,4 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/docs/phase-f4-release-readiness-check.md", "reason": "Release readiness checklist rules for local-first docs"}
-{"file": ".trellis/spec/docs/phase-f3-readme-operator-quickstart-refresh.md", "reason": "README operator quickstart and credential-free docs rules"}
-{"file": ".trellis/spec/docs/phase-g1-roadmap-spec-authority-refresh.md", "reason": "Roadmap/spec consistency rules for documentation-only refresh"}

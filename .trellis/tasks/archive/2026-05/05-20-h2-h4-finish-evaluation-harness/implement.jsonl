@@ -1,9 +1,0 @@
-{"file":".trellis/spec/backend/evaluation-harness.md","reason":"Primary Phase H completion design and acceptance criteria"}
-{"file":".trellis/tasks/05-20-h2-h4-finish-evaluation-harness/prd.md","reason":"Task-specific H2-H4 requirements"}
-{"file":"plan.md","reason":"Phase H roadmap and final completion markers"}
-{"file":"README.md","reason":"Operator-facing eval docs"}
-{"file":"src/eval.rs","reason":"Existing H1 eval harness implementation to extend"}
-{"file":"src/main.rs","reason":"CLI eval command and tests"}
-{"file":"tests/fixtures/eval/corpus.yaml","reason":"Existing eval manifest to expand"}
-{"file":"tests/fixtures/eval/golden/sample_feed_technology_high.json","reason":"Existing golden snapshot pattern"}
-{"file":"tests/fixtures/sample_feed.xml","reason":"Existing fixture case pattern"}

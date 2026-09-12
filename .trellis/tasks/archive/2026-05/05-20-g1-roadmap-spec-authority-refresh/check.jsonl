@@ -1,7 +1,0 @@
-{"file":"plan.md","reason":"Check Phase F complete, Phase G/H direction, and current verification baseline"}
-{"file":"README.md","reason":"Check visible current-state summary"}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Check no stale Phase D in-progress claims remain"}
-{"file":".trellis/spec/backend/scoring-spec.md","reason":"Check Python-era path references are removed or marked historical"}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Check superseded Rich-era content is explicitly historical"}
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"Check Python-era storage content is not presented as current Rust guidance"}
-{"file":".trellis/spec/docs/phase-g1-roadmap-spec-authority-refresh.md","reason":"Check audit strings and verification criteria"}

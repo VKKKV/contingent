@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index and pre-development checklist for Rust migration planning"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Current roadmap and shipped-vs-future boundary that Rust migration must preserve"}
-{"file": ".trellis/spec/backend/rust-migration-plan.md", "reason": "Implementation-ready staged Rust migration gates and first-slice acceptance criteria"}
-{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Current module layout and doc naming constraints before introducing Rust structure"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Current quality and verification baseline to preserve during migration"}

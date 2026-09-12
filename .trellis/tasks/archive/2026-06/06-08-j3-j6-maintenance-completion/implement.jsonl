@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"SQLite schema, foreign-key, one-shot connection, and maintenance safety conventions."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Operator command safety, local-first behavior, and verification quality guidance."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing storage/CLI patterns across maintenance commands without duplicated logic."}

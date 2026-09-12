@@ -1,8 +1,0 @@
-{"file":".trellis/spec/backend/source-feed-management.md","reason":"Check I1 implementation against design"}
-{"file":".trellis/tasks/05-20-i1-source-registry-first-slice/prd.md","reason":"Check task acceptance criteria"}
-{"file":"README.md","reason":"Check source registry operator docs"}
-{"file":"plan.md","reason":"Check Phase I roadmap/status"}
-{"file":"src/fetch.rs","reason":"Check fixture parsing compatibility"}
-{"file":"src/lib.rs","reason":"Check module export"}
-{"file":"src/main.rs","reason":"Check CLI command and tests"}
-{"file":"examples/config.example.yaml","reason":"Check example style remains credential-free"}

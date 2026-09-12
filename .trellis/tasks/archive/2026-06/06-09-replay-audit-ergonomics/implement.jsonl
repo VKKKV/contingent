@@ -1,4 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/contracts/tui-contract.md", "reason": "TUI read-only/replay rendering constraints"}
-{"file": ".trellis/spec/docs/phase-f3-readme-operator-quickstart-refresh.md", "reason": "README local-first operator documentation rules"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Rust quality and verification rules"}

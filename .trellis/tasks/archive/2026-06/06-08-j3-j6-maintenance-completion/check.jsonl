@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"Check maintenance commands preserve SQLite contracts, do not create missing DBs, and use transactions/PRAGMA safely."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check command behavior is operator-safe, local-first, documented, and tested."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Check implementation reuses shared helpers and avoids repeated fragile SQL/report logic."}

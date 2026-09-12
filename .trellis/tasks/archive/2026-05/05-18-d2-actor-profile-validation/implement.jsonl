@@ -1,4 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/phase-d2-actor-profile-validation.md", "reason": "D2 validation contract and test requirements"}
-{"file": ".trellis/spec/backend/phase-2.3-actor-profiles.md", "reason": "existing ActorProfile system design and YAML format"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Phase D roadmap and current verification baseline"}

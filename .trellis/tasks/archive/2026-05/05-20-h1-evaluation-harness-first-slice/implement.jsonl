@@ -1,7 +1,0 @@
-{"file":"plan.md","reason":"Phase H roadmap authority and completion marker"}
-{"file":"README.md","reason":"Operator-facing command summary if eval command is documented"}
-{"file":".trellis/spec/backend/evaluation-harness.md","reason":"Primary H1 design and acceptance criteria"}
-{"file":"src/main.rs","reason":"CLI command definitions, run dispatch, and tests"}
-{"file":"src/lib.rs","reason":"Pipeline library entrypoints and module exports"}
-{"file":"tests/fixtures/sample_feed.xml","reason":"Seed fixture for first eval case"}
-{"file":"tests/fixtures/contracts/run_artifact_v1.json","reason":"Existing semantic artifact fixture for expected values"}

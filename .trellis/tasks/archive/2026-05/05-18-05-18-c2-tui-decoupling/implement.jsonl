@@ -1,5 +1,0 @@
-{"file":"plan.md","reason":"Authoritative architecture and TUI design context."}
-{"file":".trellis/spec/backend/index.md","reason":"Backend pre-development checklist and spec index."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Rust quality bar and verification expectations for this refactor."}
-{"file":".trellis/spec/backend/phase-c2-tui-decoupling.md","reason":"Task-specific design for ViewState refactor."}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"TUI behavioral contract to preserve during the refactor."}

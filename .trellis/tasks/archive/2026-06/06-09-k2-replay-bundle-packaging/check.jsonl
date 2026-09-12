@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/phase-e3-tui-snapshot-timeline-replay.md","reason":"Check bundle manifest and trace preserve replay frame semantics."}
-{"file":".trellis/spec/backend/phase-e2-structured-agent-output-auditability.md","reason":"Check structured audit fields remain available in bundled trace."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check bundle export is local-only, secret-safe, and tested."}

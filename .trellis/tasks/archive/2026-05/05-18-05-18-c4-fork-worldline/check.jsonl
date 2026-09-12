@@ -1,8 +1,0 @@
-{"file": "plan.md", "reason": "Verify implementation remains aligned with architecture plan."}
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend checklist and relevant guideline discovery."}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Quality and verification criteria for check pass."}
-{"file": ".trellis/spec/backend/error-handling.md", "reason": "Review new store error paths for project conventions."}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Review SQLite store patterns."}
-{"file": ".trellis/spec/backend/phase-c4-fork-worldline.md", "reason": "Task-specific acceptance criteria for fork_worldline unification."}
-{"file": ".trellis/spec/backend/phase-2.2-worldline-model.md", "reason": "Check worldline ID/hash/parent semantics."}
-{"file": ".trellis/spec/backend/phase-2.5-nuwa-sandbox.md", "reason": "Check Nuwa sandbox behavior remains compatible."}

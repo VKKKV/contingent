@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index and checklist for review"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Review migration plan against shipped roadmap boundaries"}
-{"file": ".trellis/spec/backend/rust-migration-plan.md", "reason": "Review staged Rust migration gates and scope boundaries"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Review verification and local-first quality expectations"}

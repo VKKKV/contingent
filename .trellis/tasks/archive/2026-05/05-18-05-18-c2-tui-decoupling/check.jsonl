@@ -1,5 +1,0 @@
-{"file":"plan.md","reason":"Verify the refactor remains aligned with the architecture and TUI plan."}
-{"file":".trellis/spec/backend/index.md","reason":"Backend checklist and relevant guideline discovery."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Quality and verification criteria for the check pass."}
-{"file":".trellis/spec/backend/phase-c2-tui-decoupling.md","reason":"Task-specific acceptance criteria for the ViewState refactor."}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Check behavior and navigation semantics remain unchanged."}

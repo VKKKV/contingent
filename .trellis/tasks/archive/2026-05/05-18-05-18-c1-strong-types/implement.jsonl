@@ -1,6 +1,0 @@
-{"file":"plan.md","reason":"Authoritative architecture and current Phase C development plan."}
-{"file":".trellis/spec/backend/index.md","reason":"Backend pre-development checklist and spec index."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Rust quality bar, forbidden patterns, and verification expectations."}
-{"file":".trellis/spec/backend/error-handling.md","reason":"TianJiError conventions if typed conversion needs error handling."}
-{"file":".trellis/spec/backend/phase-c1-strong-types.md","reason":"Task-specific design for replacing serde_json::Value with strong types."}
-{"file":".trellis/spec/backend/phase-2.4-hongmeng-orchestration.md","reason":"Hongmeng agent and blackboard context touched by C1."}

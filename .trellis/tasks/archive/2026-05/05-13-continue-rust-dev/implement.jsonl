@@ -1,7 +1,0 @@
-{"file":"plan.md","reason":"Authoritative Rust architecture, TUI design spec, dependency list, and milestone order."}
-{"file":".trellis/spec/backend/index.md","reason":"Backend pre-development checklist and contract/spec index."}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Migration milestone status and guardrails for Rust TUI work."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Rust dependency, testing, lint, and code quality requirements."}
-{"file":".trellis/spec/backend/error-handling.md","reason":"TianJiError and user-facing CLI error handling conventions."}
-{"file":".trellis/spec/backend/directory-structure.md","reason":"Rust module organization guidance for adding the TUI module."}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Read-only persisted-run TUI semantics and Python oracle parity expectations."}

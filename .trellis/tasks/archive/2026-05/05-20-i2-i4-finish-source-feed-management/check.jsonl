@@ -1,7 +1,0 @@
-{"file":".trellis/spec/backend/source-feed-management.md","reason":"Check Phase I completion contract"}
-{"file":".trellis/tasks/05-20-i2-i4-finish-source-feed-management/prd.md","reason":"Check task acceptance criteria"}
-{"file":"README.md","reason":"Check operator docs"}
-{"file":"plan.md","reason":"Check roadmap/status"}
-{"file":"src/source_registry.rs","reason":"Check source management implementation and tests"}
-{"file":"src/main.rs","reason":"Check CLI behavior and tests"}
-{"file":"examples/sources.example.yaml","reason":"Check example remains credential-free"}

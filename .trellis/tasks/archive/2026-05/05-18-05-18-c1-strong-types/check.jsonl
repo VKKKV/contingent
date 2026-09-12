@@ -1,6 +1,0 @@
-{"file":"plan.md","reason":"Verify the implementation remains aligned with the architecture plan."}
-{"file":".trellis/spec/backend/index.md","reason":"Backend checklist and relevant guideline discovery."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Quality and verification criteria for the check pass."}
-{"file":".trellis/spec/backend/error-handling.md","reason":"Review any new error paths for project conventions."}
-{"file":".trellis/spec/backend/phase-c1-strong-types.md","reason":"Task-specific acceptance criteria for the strong-type migration."}
-{"file":".trellis/spec/backend/phase-2.4-hongmeng-orchestration.md","reason":"Check Hongmeng behavior remains compatible while adding typed state."}

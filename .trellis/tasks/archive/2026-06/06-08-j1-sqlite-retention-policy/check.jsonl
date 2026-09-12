@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"Verify retention transaction, foreign-key cascade, orphan cleanup, and storage tests follow Rust database conventions."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Check implementation reuses existing storage and CLI patterns without duplicating logic."}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Check roadmap/docs update is consistent with Phase J operational reliability direction."}

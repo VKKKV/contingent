@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/source-feed-management.md","reason":"Source registry safety, health report, live-fetch opt-in, and local-first source management conventions."}
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"SQLite additive schema, persistence, and one-shot connection conventions for source health history."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Operator scheduling documentation and test quality guidance."}

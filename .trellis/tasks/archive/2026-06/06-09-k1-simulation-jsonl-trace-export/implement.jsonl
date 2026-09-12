@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/phase-e2-structured-agent-output-auditability.md","reason":"AgentAction audit metadata to include in simulation trace frames."}
-{"file":".trellis/spec/backend/phase-e3-tui-snapshot-timeline-replay.md","reason":"Existing simulation replay/timeline semantics and frame metadata conventions."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Schema stability, local-first export behavior, and test quality guidance."}

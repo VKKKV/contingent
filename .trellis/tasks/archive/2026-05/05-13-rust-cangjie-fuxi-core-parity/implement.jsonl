@@ -1,7 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index and pre-development checklist"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Rust migration milestones, Milestone 1B scope boundaries, and guardrails"}
-{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Project layout conventions for adding Rust modules alongside Python oracle"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Verification and dependency constraints"}
-{"file": ".trellis/spec/backend/error-handling.md", "reason": "CLI and input error behavior guidance"}
-{"file": ".trellis/spec/backend/scoring-spec.md", "reason": "Authoritative Im/Fa scoring model formulas, rationale vocabulary, and deferred work — must match for Milestone 1B parity"}

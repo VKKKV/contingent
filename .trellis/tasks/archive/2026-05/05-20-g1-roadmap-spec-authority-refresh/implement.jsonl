@@ -1,7 +1,0 @@
-{"file":"plan.md","reason":"Root roadmap authority and Phase G/H target definitions"}
-{"file":"README.md","reason":"User-facing current-state summary must match roadmap baseline"}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Backend roadmap mirror currently stale after Phase F"}
-{"file":".trellis/spec/backend/scoring-spec.md","reason":"Contains Python-era scoring paths that need historical/superseded framing"}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Contains Python Rich-era TUI contract that needs clear superseded framing"}
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"May contain Python-era storage references that need Rust-current framing"}
-{"file":".trellis/spec/docs/phase-g1-roadmap-spec-authority-refresh.md","reason":"Task-specific documentation quality rules"}

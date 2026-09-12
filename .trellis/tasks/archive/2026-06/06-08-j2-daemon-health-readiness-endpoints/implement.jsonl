@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/phase-d3-sqlite-connection-pool.md","reason":"API state and SQLite pool readiness conventions for daemon/API paths."}
-{"file":".trellis/spec/backend/contracts/local-api-contract.md","reason":"Local API envelope/resource contract conventions for health and readiness endpoints."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Daemon readiness, local-first reliability, and test quality guidance."}

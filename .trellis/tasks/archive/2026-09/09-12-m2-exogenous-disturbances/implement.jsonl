@@ -1,7 +1,0 @@
-{"file": ".trellis/tasks/09-12-m2-exogenous-disturbances/prd.md", "reason": "Approved M2 slice-1 scope, gates and acceptance criteria"}
-{"file": ".trellis/tasks/09-12-m2-exogenous-disturbances/m2-contract.md", "reason": "Exact disturbance schema, transition order, invariants, import rule and browser test ids"}
-{"file": ".trellis/tasks/09-10-world-simulation-lab/m1-contract.md", "reason": "Baseline M1 models, operations and UI ownership that this slice extends"}
-{"file": ".trellis/spec/lab/execution-contract.md", "reason": "Current operation, lifecycle, error and regression contract"}
-{"file": ".trellis/spec/lab/index.md", "reason": "Laboratory conventions: pure kernel, bounded search, no fabricated state"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "One shared validation path for HTTP, MCP and browser"}
-{"file": "docs/laboratory.md", "reason": "Delivered operator-visible M1 semantics that must stay accurate"}

@@ -1,5 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/phase-d7-alert-dispatch-external-channels.md", "reason": "D7 backend spec and safety contract"}
-{"file": "plan.md", "reason": "Phase D roadmap and ShadowBroker alert dispatch borrowing"}
-{"file": "src/lib.rs", "reason": "Existing AlertTier exports and module list"}
-{"file": "src/daemon.rs", "reason": "Existing daemon job records with delta tiers"}

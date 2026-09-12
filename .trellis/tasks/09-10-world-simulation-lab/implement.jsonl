@@ -1,5 +1,0 @@
-{"file": ".trellis/tasks/09-10-world-simulation-lab/prd.md", "reason": "Approved product and TS+Python selection"}
-{"file": ".trellis/tasks/09-10-world-simulation-lab/m1-contract.md", "reason": "Exact M1 model/functions/API/UI ownership and acceptance"}
-{"file": ".trellis/spec/lab/index.md", "reason": "New lab conventions and verification"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer contracts and no duplicate business logic"}
-{"file": ".trellis/tasks/09-10-world-simulation-lab/architecture.md", "reason": "Long-term boundary; M1 narrower scope is authoritative"}

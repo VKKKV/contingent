@@ -1,3 +1,0 @@
-{"file":".trellis/spec/docs/phase-f4-release-readiness-check.md","reason":"F4-specific release readiness checklist requirements and safety rules"}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Rust quality gate and dependency/completion context"}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Existing release/docs/completion milestone context"}

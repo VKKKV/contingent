@@ -1,8 +1,0 @@
-{"file":".trellis/spec/backend/evaluation-harness.md","reason":"Check Phase H completion contract"}
-{"file":".trellis/tasks/05-20-h2-h4-finish-evaluation-harness/prd.md","reason":"Check task acceptance criteria"}
-{"file":"README.md","reason":"Check eval operator docs"}
-{"file":"plan.md","reason":"Check Phase H complete roadmap state"}
-{"file":"src/eval.rs","reason":"Check manifest/golden/update/drift logic and tests"}
-{"file":"src/main.rs","reason":"Check CLI flags, exit behavior, and tests"}
-{"file":"tests/fixtures/eval/corpus.yaml","reason":"Check corpus cases are local-first and credential-free"}
-{"file":"tests/fixtures/eval/golden/sample_feed_technology_high.json","reason":"Check golden semantic snapshot pattern"}

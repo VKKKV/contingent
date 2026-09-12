@@ -1,5 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/phase-d3-sqlite-connection-pool.md", "reason": "D3 verification contract"}
-{"file": ".trellis/tasks/05-18-d3-sqlite-connection-pool/prd.md", "reason": "Task requirements"}
-{"file": "src/storage.rs", "reason": "Pool and storage verification"}
-{"file": "src/api.rs", "reason": "API behavior verification"}

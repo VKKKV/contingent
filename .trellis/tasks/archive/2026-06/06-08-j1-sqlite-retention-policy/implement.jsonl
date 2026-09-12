@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"SQLite schema, connection, transaction, foreign-key, and Rust database conventions for retention implementation."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Avoid duplicated storage/report logic and reuse existing CLI/storage patterns."}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Roadmap authority context for Phase J operational reliability placement."}

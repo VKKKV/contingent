@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/source-feed-management.md","reason":"Check source registry remains local-first, disabled sources are not fetched, and reports preserve health fields."}
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"Check source health persistence uses additive SQLite schema and does not create DB unless requested."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check tests and operator scheduling docs are complete."}

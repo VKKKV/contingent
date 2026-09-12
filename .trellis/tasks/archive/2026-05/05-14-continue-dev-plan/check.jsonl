@@ -1,4 +1,0 @@
-{"file":".trellis/spec/backend/index.md","reason":"Backend checklist for verification."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Rust lint/test and dependency verification."}
-{"file":".trellis/spec/backend/contracts/tui-contract.md","reason":"Verify read-only TUI semantics and keyboard/browser behavior."}
-{"file":".trellis/spec/backend/development-plan.md","reason":"Verify scope stays within Milestone 4 and does not pull deferred Hongmeng/Nuwa work."}

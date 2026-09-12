@@ -1,9 +1,0 @@
-{"file":".trellis/spec/backend/source-feed-management.md","reason":"Primary Phase I completion design and acceptance criteria"}
-{"file":".trellis/tasks/05-20-i2-i4-finish-source-feed-management/prd.md","reason":"Task-specific Phase I completion requirements"}
-{"file":"plan.md","reason":"Phase I roadmap/status updates"}
-{"file":"README.md","reason":"Operator-facing source/feed docs"}
-{"file":"src/source_registry.rs","reason":"Existing I1 registry implementation to extend"}
-{"file":"src/main.rs","reason":"CLI command and tests"}
-{"file":"src/lib.rs","reason":"Library exports and pipeline helpers"}
-{"file":"src/fetch.rs","reason":"Feed parsing and source naming semantics"}
-{"file":"examples/sources.example.yaml","reason":"Credential-free source registry example"}

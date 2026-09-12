@@ -1,5 +1,0 @@
-{"file": "plan.md", "reason": "Verify refactor remains aligned with architecture plan."}
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend checklist and relevant guideline discovery."}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Quality and verification criteria for check pass."}
-{"file": ".trellis/spec/backend/phase-c3-forward-dedup.md", "reason": "Task-specific acceptance criteria for forward.rs deduplication."}
-{"file": ".trellis/spec/backend/phase-2.5-nuwa-sandbox.md", "reason": "Check Nuwa forward simulation behavior remains compatible."}

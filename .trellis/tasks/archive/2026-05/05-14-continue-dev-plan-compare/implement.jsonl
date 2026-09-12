@@ -1,5 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": "plan.md", "reason": "Authoritative Rust architecture and TUI design spec"}
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend guideline index and pre-development checklist"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Current migration milestones and TUI continuation guardrails"}
-{"file": ".trellis/spec/backend/contracts/tui-contract.md", "reason": "Read-only TUI persisted-run compare contract"}

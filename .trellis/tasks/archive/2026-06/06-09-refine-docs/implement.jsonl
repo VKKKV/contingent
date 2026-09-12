@@ -1,5 +1,0 @@
-{"file":".trellis/spec/backend/index.md","reason":"Documents that plan.md is the architecture authority and docs should be English."}
-{"file":".trellis/spec/docs/phase-f0-roadmap-docs-refresh.md","reason":"Root README/plan refresh rules: documentation-only, current state, no secrets, latest counters."}
-{"file":".trellis/spec/docs/phase-f3-readme-operator-quickstart-refresh.md","reason":"README operator quickstart requirements: local-first, credential-free, shipped behavior only."}
-{"file":".trellis/spec/docs/phase-f4-release-readiness-check.md","reason":"Release checklist format and local credential-free readiness gate rules."}
-{"file":".trellis/spec/docs/phase-g1-roadmap-spec-authority-refresh.md","reason":"Root-doc consistency rules: README must not contradict plan.md; documentation-only scope."}

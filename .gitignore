@@ -21,9 +21,6 @@ target/
 *.rs.bk
 *.pdb
 
-# Trellis backups (recursive bloat)
-.trellis/.backup-*/
-
 # Backup files
 *.backup
 

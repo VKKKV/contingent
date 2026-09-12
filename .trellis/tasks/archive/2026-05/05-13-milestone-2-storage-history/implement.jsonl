@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "Pre-dev checklist + guideline index for backend layer"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Milestone order, guardrails, parity verification rules"}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite conventions, schema patterns, connection handling"}
-{"file": ".trellis/spec/backend/error-handling.md", "reason": "Error type patterns for storage/CLI layer"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Test contract fixture verification requirements"}
-{"file": ".trellis/spec/backend/contracts/local-api-contract.md", "reason": "API vocabulary mirrors CLI/storage — must align field names"}
-{"file": ".trellis/spec/backend/contracts/index.md", "reason": "Contract index — TUI uses storage directly, not API"}
-{"file": ".trellis/spec/backend/scoring-spec.md", "reason": "Im/Fa scoring field names used in storage read queries"}
-{"file": ".trellis/tasks/05-13-milestone-2-storage-history/prd.md", "reason": "Requirements + decisions for this task"}

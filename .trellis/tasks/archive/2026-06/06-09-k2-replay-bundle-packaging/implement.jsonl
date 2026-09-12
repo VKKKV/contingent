@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/phase-e3-tui-snapshot-timeline-replay.md","reason":"Replay frame metadata and timeline semantics relevant to portable replay bundles."}
-{"file":".trellis/spec/backend/phase-e2-structured-agent-output-auditability.md","reason":"Ensure bundled trace preserves structured agent audit metadata."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Local-first export safety, no secret leakage, and test quality guidance."}

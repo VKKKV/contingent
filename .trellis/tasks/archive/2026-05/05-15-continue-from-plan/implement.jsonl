@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend pre-development checklist and spec index"}
-{"file": ".trellis/spec/backend/development-plan.md", "reason": "Rust migration milestones, M6 retirement gates, and Phase 6 cleanup scope"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Rust deterministic quality and verification requirements"}
-{"file": ".trellis/spec/backend/contracts/daemon-contract.md", "reason": "Daemon contract — completions subcommand must not break daemon CLI surface"}

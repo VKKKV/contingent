@@ -1,7 +1,0 @@
-{"file":".trellis/spec/backend/evaluation-harness.md","reason":"Check implementation against eval harness contract"}
-{"file":".trellis/tasks/05-20-h1-evaluation-harness-first-slice/prd.md","reason":"Check task acceptance criteria"}
-{"file":"src/main.rs","reason":"Check CLI surface, exit behavior, and tests"}
-{"file":"src/lib.rs","reason":"Check exported eval module and deterministic pipeline usage"}
-{"file":"tests/fixtures/sample_feed.xml","reason":"Check seed fixture remains local-first and credential-free"}
-{"file":"tests/fixtures/contracts/run_artifact_v1.json","reason":"Check first golden expectations against existing artifact contract"}
-{"file":"plan.md","reason":"Check H1 marked complete only after verification"}
