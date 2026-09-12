@@ -1,5 +1,8 @@
 # TianJi (天机) — Development Plan v6
 
+> New direction approved 2026-09-10: **Bidirectional World Simulation Laboratory**, Web-first and agent-operable, implemented with TypeScript/React + Python/FastAPI. M1 is delivered and verified on branch `feat/world-simulation-lab` (status, evidence and commit plan in handoff.md). The active implementation authority for new `backend/` and `web/` code is [.trellis/tasks/09-10-world-simulation-lab/m1-contract.md](.trellis/tasks/09-10-world-simulation-lab/m1-contract.md), with broader design in [architecture.md](.trellis/tasks/09-10-world-simulation-lab/architecture.md).
+> The remainder of this file records the **legacy Rust v0.2 baseline**, not a requirement to port heuristic probabilities or CLI-first behavior into the new product. Rust source and existing databases are preserved; no destructive migration is authorized. M1 delivery status must be verified by real tests and browser operation, not inferred from this approval.
+
 > Branch: `main` | Updated: 2026-06-09
 > Target: 智库级信号分析引擎 — 确定性管线 + 跨 run 变化追踪 + 多 Agent 仿真
 > Current: Core Rust product, Phase A/B/C/D/E hardening, Phase F operator readiness, Phase G roadmap/spec authority refresh, release-readiness gate, Phase H evaluation harness, Phase I source/feed management, Phase J operational reliability, and Phase K simulation replay/export with TUI replay/audit viewer complete.

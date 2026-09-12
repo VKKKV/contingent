@@ -1,8 +1,51 @@
 # TianJi (天机)
 
-TianJi is a geopolitical intelligence engine — ingest signals, compute divergence, generate intervention candidates, and track changes across runs. Deterministic by default. Daemon-ready. Single binary.
+TianJi is a **bidirectional world simulation laboratory** (双向世界推演实验室). Its creative vision is a computational Laplace's demon, not perfect prediction: explore conditional futures, plan backwards from a goal, fork a worldline, and test every candidate against the same forward model.
 
-## Current State (2026-06-09)
+## Active implementation: TypeScript + Python
+
+The new local-first workbench lives in `web/` (React/TypeScript/Vite) and `backend/` (Python/FastAPI/Pydantic/SQLite). Web and external agents share a validated operation registry and an official MCP stdio adapter. The initial executable slice is a **fictional, deterministic civilian supply chain**, not a general world simulator or a calibrated forecasting system.
+
+- Edit bounded scenario parameters and per-turn actions; run forward trajectories.
+- Search from terminal goals and constraints; distinguish feasible plans, finite-model no solution, and incomplete search. Replay all returned plans with the forward model.
+- Fork recorded ticks, compare frozen assumptions, inspect events/state hashes, export and semantically validate standalone JSON bundles.
+- Operate the same scenarios, jobs, branches and desired workspace state through HTTP and MCP. The browser polls branch/tick/panel changes; a successful API call is not a browser rendering acknowledgement.
+- Single local director, token authentication, revision guards, durable bounded jobs and cancellation. No built-in LLM/chat, live feeds, multiplayer authorization or real-world actuation in this slice.
+
+### Run the laboratory
+
+Requires Node 22.12+ (or a supported newer Node release), `uv`, and Python 3.12+. The service currently targets Linux/macOS (POSIX file locking). From the repository root:
+
+```bash
+npm --prefix web ci
+npm --prefix web run build
+uv sync --project backend --locked --python 3.12
+uv run --project backend --locked python -m tianji_lab serve \
+  --host 127.0.0.1 --port 8787 --data-dir .local-data
+```
+
+Open http://127.0.0.1:8787. The service prints the path of a mode-0600 `token` file in the chosen data directory; paste its contents into the connection form. Tokens are never placed in URLs. Reuse the data directory to keep experiments. Only one service may own it. No legacy database migration occurs.
+
+For development, run `npm --prefix web run dev` alongside the API. For MCP setup, model rules, acceptance commands and limitations, see [Laboratory guide](docs/laboratory.md). Product requirements and the accepted language decision are recorded in the [active Trellis task](.trellis/tasks/09-10-world-simulation-lab/prd.md).
+
+### Validation
+
+```bash
+uv run --project backend --locked pytest backend/tests
+uv run --project backend --locked ruff check backend
+uv run --project backend --locked ruff format --check backend
+npm --prefix web test
+npm --prefix web run format:check
+npm --prefix web run build
+```
+
+Browser acceptance is a separate real Chromium test, not mocked HTTP; see the guide. Do not infer real-world predictive validity from tests or simulated goal attainment.
+
+## Preserved legacy Rust implementation
+
+The remainder of this README documents the earlier geopolitical intelligence pipeline. `src/`, `Cargo.toml`, `Cargo.lock`, profiles and existing databases are retained for reference; the new laboratory does **not** run a parallel Rust backend or claim old CLI/API compatibility. Legacy milestone claims below are historical, not the status of the new stack. A later runtime check reproduced a nested Tokio runtime failure in the old daemon; its presence in the historical feature list is not a current readiness guarantee.
+
+### Historical state (2026-06-09)
 
 Pure Rust project. 445 cargo tests across 3 suites pass / 0 fail. Single binary, no Python dependencies. Deterministic core pipeline remains local-first; optional LLM-backed Hongmeng/Nuwa simulation, JSONL simulation trace export, replay bundle packaging, trace-backed TUI replay loading, structured agent audit viewer, daemon API, alert dispatch, eval harness drift checks, source/feed management with SQLite source health history, SQLite retention, daemon health/readiness probes, and local maintenance check/backup/export/compact are implemented. Latest local release-readiness build measured 16,245,408 bytes / 15.49 MiB under the 25 MB target.
 

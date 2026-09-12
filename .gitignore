@@ -1,3 +1,21 @@
+# Python / Web laboratory
+backend/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+*.pyc
+*.egg-info/
+web/node_modules/
+web/dist/
+*.tsbuildinfo
+.local-data/
+backend/.local-data/
+.env
+.env.*
+!.env.example
+*.sqlite3-wal
+*.sqlite3-shm
+
 # Rust
 target/
 *.rs.bk
