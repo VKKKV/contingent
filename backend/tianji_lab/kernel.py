@@ -1,16 +1,49 @@
-"""Deterministic rules-v1 simulation and finite, model-conditional goal search.
+"""Deterministic rules-v2 simulation and finite, model-conditional goal search.
 
 `delivered` counts goods served to retail customers, not inbound shipments.
 Shortage is cumulative lost demand, never a recoverable backlog. Costs are per
-shipment. Search explores action sequences, not probabilities or bargaining.
+shipment. Exogenous disturbances are an explicit, operator-visible schedule in
+the scenario specification - there is no random number generator and no seed, so
+replay never depends on hidden bookkeeping. Search explores action sequences, not
+probabilities or bargaining.
 """
 
 import json
 from hashlib import sha256
 
-from .models import Action, Frame, Goal, Role, Scenario, SearchResult, Shipment, State, Trajectory
+from .models import (
+    RULE_VERSION_V1,
+    RULE_VERSION_V2,
+    Action,
+    Frame,
+    Goal,
+    Role,
+    RuleVersion,
+    Scenario,
+    SearchResult,
+    Shipment,
+    State,
+    Trajectory,
+)
 
 ACTIONS: tuple[Action, ...] = ("order_express", "order_standard", "wait")
+
+
+def rule_version_for(scenario: Scenario) -> RuleVersion:
+    """Derive the rule label from the specification, never from the caller."""
+    scenario = Scenario.model_validate(scenario)
+    return RULE_VERSION_V2 if scenario.disturbances else RULE_VERSION_V1
+
+
+def cumulative_demand(scenario: Scenario, tick: int) -> int:
+    """Total demand that must have been delivered or lost by the end of `tick`."""
+    scenario = Scenario.model_validate(scenario)
+    spikes = sum(
+        disturbance.amount
+        for disturbance in scenario.disturbances
+        if disturbance.kind == "demand_spike" and disturbance.tick <= tick
+    )
+    return tick * scenario.demand_per_tick + spikes
 
 
 def initial_state(scenario: Scenario) -> State:
@@ -23,6 +56,7 @@ def initial_state(scenario: Scenario) -> State:
         delivered=0,
         shortage=0,
         spent=0,
+        lost=0,
         shipments=[],
     )
 
@@ -45,20 +79,25 @@ def _check_state(scenario: Scenario, state: State) -> State:
         raise ValueError("state tick exceeds scenario horizon")
     if state.cash + state.spent != scenario.initial_cash:
         raise ValueError("cash conservation violated")
+    if state.lost > scenario.supplier_stock:
+        raise ValueError("lost goods exceed initial supplier stock")
+    if state.lost and not scenario.disturbances:
+        raise ValueError("a schedule-free rules-v1 specification cannot report lost goods")
     goods = (
         state.inventory
         + state.delivered
         + state.supplier_stock
+        + state.lost
         + sum(shipment.quantity for shipment in state.shipments)
     )
     if goods != scenario.initial_inventory + scenario.supplier_stock:
         raise ValueError("goods conservation violated")
     if state.supplier_stock > scenario.supplier_stock:
         raise ValueError("supplier stock exceeds initial stock")
-    if state.delivered + state.shortage != state.tick * scenario.demand_per_tick:
+    if state.delivered + state.shortage != cumulative_demand(scenario, state.tick):
         raise ValueError("cumulative demand accounting violated")
-    purchased = scenario.supplier_stock - state.supplier_stock
-    if purchased % scenario.shipment_size:
+    purchased = scenario.supplier_stock - state.supplier_stock - state.lost
+    if purchased < 0 or purchased % scenario.shipment_size:
         raise ValueError("purchased stock must consist of whole shipments")
     order_count = purchased // scenario.shipment_size
     if order_count > state.tick or len(state.shipments) > order_count:
@@ -102,7 +141,7 @@ def _parse_action(action: str) -> Action:
 
 
 def step(scenario: Scenario, state: State, action: str) -> Frame:
-    """Purchase, advance the clock, receive due goods, then serve fixed demand."""
+    """Purchase, advance the clock, receive due goods, apply exogenous events, serve demand."""
     parsed_action = _parse_action(action)
     scenario = Scenario.model_validate(scenario)
     state = _check_state(scenario, state)
@@ -111,7 +150,13 @@ def step(scenario: Scenario, state: State, action: str) -> Frame:
     if not _legal(scenario, state, parsed_action):
         raise ValueError("insufficient cash or supplier stock for order")
 
-    inventory, cash, stock, spent = (state.inventory, state.cash, state.supplier_stock, state.spent)
+    inventory, cash, stock, spent, lost = (
+        state.inventory,
+        state.cash,
+        state.supplier_stock,
+        state.spent,
+        state.lost,
+    )
     shipments = [shipment.model_copy(deep=True) for shipment in state.shipments]
     events: list[str] = []
     if action != "wait":
@@ -136,9 +181,41 @@ def step(scenario: Scenario, state: State, action: str) -> Frame:
     )
     if arrived:
         events.append(f"received {arrived} at tick {tick}")
-    served = min(inventory, scenario.demand_per_tick)
-    shortage = scenario.demand_per_tick - served
-    events.append(f"demand {scenario.demand_per_tick}: delivered {served}; shortage {shortage}")
+
+    # Exogenous events apply after arrivals and before demand service, in the
+    # order the operator declared them. A loss cannot be dodged by an order
+    # placed on the previous turn, and a loss never carries forward.
+    base_demand = scenario.demand_per_tick
+    extra_demand = 0
+    for disturbance in scenario.disturbances:
+        if disturbance.tick != tick:
+            continue
+        if disturbance.kind == "demand_spike":
+            extra_demand += disturbance.amount
+            events.append(
+                f"disturbance demand_spike at tick {tick}: demand "
+                f"{base_demand} -> {base_demand + extra_demand}"
+            )
+        else:
+            declared = disturbance.amount
+            actual = min(declared, stock)
+            stock -= actual
+            lost += actual
+            events.append(
+                f"disturbance supplier_loss at tick {tick}: declared {declared}, "
+                f"lost {actual}, stock {stock + actual} -> {stock}"
+            )
+
+    demand = base_demand + extra_demand
+    served = min(inventory, demand)
+    shortage = demand - served
+    if extra_demand:
+        events.append(
+            f"demand {demand} [base {base_demand} + spikes {extra_demand}]: "
+            f"delivered {served}; shortage {shortage}"
+        )
+    else:
+        events.append(f"demand {demand}: delivered {served}; shortage {shortage}")
     next_state = _check_state(
         scenario,
         State(
@@ -149,6 +226,7 @@ def step(scenario: Scenario, state: State, action: str) -> Frame:
             delivered=state.delivered + served,
             shortage=state.shortage + shortage,
             spent=spent,
+            lost=lost,
             shipments=shipments,
         ),
     )
@@ -194,6 +272,7 @@ def simulate(
         final_state=state,
         state_hash=state_hash(state),
         goal_met=None if goal is None else _goal_met(state, goal),
+        rule_version=rule_version_for(scenario),
     )
 
 
@@ -214,7 +293,8 @@ def validate_trajectory(
 
 
 def _state_key(state: State) -> tuple:
-    # Every transition-relevant field participates; no inventory-only merging.
+    # Every transition-relevant field participates; lost is part of the state
+    # because two states that differ only in destroyed goods are not equivalent.
     return (
         state.tick,
         state.inventory,
@@ -223,6 +303,7 @@ def _state_key(state: State) -> tuple:
         state.delivered,
         state.shortage,
         state.spent,
+        state.lost,
         tuple(sorted((shipment.due_tick, shipment.quantity) for shipment in state.shipments)),
     )
 
@@ -240,7 +321,8 @@ def search(
     equal-length prefixes lexicographically, so later equivalent prefixes cannot
     improve the ranked top three. An incomplete search ranks only plans found;
     `exhausted` alone certifies finite-model completeness. Terminal visits count
-    against the node budget, including a start already at the horizon.
+    against the node budget, including a start already at the horizon. Every
+    plan is re-verified by replaying the same forward model, schedule included.
     """
     if type(max_nodes) is not int or not 1 <= max_nodes <= 50000:
         raise ValueError("max_nodes must be an integer between 1 and 50000")
@@ -282,7 +364,13 @@ def search(
         plans.append(plan)
     exhausted = not frontier
     status = "found" if plans else ("no_solution" if exhausted else "budget_exhausted")
-    return SearchResult(plans=plans, expanded=expanded, exhausted=exhausted, status=status)
+    return SearchResult(
+        plans=plans,
+        expanded=expanded,
+        exhausted=exhausted,
+        status=status,
+        rule_version=rule_version_for(scenario),
+    )
 
 
 def observe(state: State, role: Role) -> dict:

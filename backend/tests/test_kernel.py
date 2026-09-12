@@ -9,8 +9,10 @@ import pytest
 from pydantic import ValidationError
 
 from tianji_lab.kernel import (
+    cumulative_demand,
     initial_state,
     observe,
+    rule_version_for,
     search,
     simulate,
     state_hash,
@@ -26,10 +28,41 @@ def scenario(**changes):
     return Scenario(name="fictional test", **changes)
 
 
+def random_schedule(rng, horizon, count):
+    """A valid operator-style schedule: unique (tick, kind), ticks within horizon."""
+    kinds = ("demand_spike", "supplier_loss")
+    pairs = rng.sample([(tick, kind) for tick in range(1, horizon + 1) for kind in kinds], count)
+    return [
+        {
+            "tick": tick,
+            "kind": kind,
+            "amount": rng.randint(1, 20) if kind == "demand_spike" else rng.randint(1, 24),
+        }
+        for tick, kind in sorted(pairs)
+    ]
+
+
+def disturbed_scenario(rng):
+    horizon = rng.randint(1, 4)
+    return scenario(
+        horizon=horizon,
+        initial_inventory=rng.randint(0, 8),
+        initial_cash=rng.randint(0, 16),
+        supplier_stock=rng.randint(0, 18),
+        shipment_size=rng.randint(1, 6),
+        demand_per_tick=rng.randint(1, 5),
+        standard_cost=rng.randint(1, 8),
+        express_cost=rng.randint(1, 8),
+        standard_lead=rng.randint(1, 5),
+        express_lead=rng.randint(1, 5),
+        disturbances=random_schedule(rng, horizon, rng.randint(0, 2)),
+    )
+
+
 def oracle(spec, actions):
     """Independent integer-only reference: no kernel calls or State models."""
     inventory, cash, stock = spec.initial_inventory, spec.initial_cash, spec.supplier_stock
-    delivered = shortage = spent = 0
+    delivered = shortage = spent = lost = 0
     pending = []
     for tick, action in enumerate(actions, 1):
         if action != "wait":
@@ -46,7 +79,17 @@ def oracle(spec, actions):
         arriving = [item for item in pending if item[0] == tick]
         pending = [item for item in pending if item[0] != tick]
         inventory += sum(quantity for _, quantity in arriving)
-        for _ in range(spec.demand_per_tick):
+        demand = spec.demand_per_tick
+        for disturbance in spec.disturbances:
+            if disturbance.tick != tick:
+                continue
+            if disturbance.kind == "demand_spike":
+                demand += disturbance.amount
+            else:
+                destroyed = min(disturbance.amount, stock)
+                stock -= destroyed
+                lost += destroyed
+        for _ in range(demand):
             if inventory:
                 inventory -= 1
                 delivered += 1
@@ -60,6 +103,7 @@ def oracle(spec, actions):
         "delivered": delivered,
         "shortage": shortage,
         "spent": spent,
+        "lost": lost,
         "shipments": [{"due_tick": due, "quantity": quantity} for due, quantity in sorted(pending)],
     }
 
@@ -87,11 +131,17 @@ def assert_invariants(spec, state):
         state.inventory
         + state.delivered
         + state.supplier_stock
+        + state.lost
         + sum(item.quantity for item in state.shipments)
         == spec.initial_inventory + spec.supplier_stock
     )
     assert state.cash + state.spent == spec.initial_cash
-    assert state.delivered + state.shortage == state.tick * spec.demand_per_tick
+    spikes = sum(
+        item.amount
+        for item in spec.disturbances
+        if item.kind == "demand_spike" and item.tick <= state.tick
+    )
+    assert state.delivered + state.shortage == state.tick * spec.demand_per_tick + spikes
     assert all(item.due_tick > state.tick for item in state.shipments)
 
 
@@ -153,7 +203,16 @@ def test_hash_is_canonical_sha256_json_and_sensitive_to_all_state_fields():
     expected = sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert state_hash(original) == expected
     assert state_hash(State.model_validate(dict(reversed(list(data.items()))))) == expected
-    for field in ("tick", "inventory", "cash", "supplier_stock", "delivered", "shortage", "spent"):
+    for field in (
+        "tick",
+        "inventory",
+        "cash",
+        "supplier_stock",
+        "delivered",
+        "shortage",
+        "spent",
+        "lost",
+    ):
         changed = dict(data)
         changed[field] += 1
         assert state_hash(State.model_validate(changed)) != expected
@@ -361,21 +420,7 @@ def test_search_matches_exhaustive_independent_oracle_and_top_three_prefixes():
         scenario(horizon=4, standard_cost=3, express_cost=1, standard_lead=1, express_lead=3),
         scenario(horizon=4, initial_cash=0, initial_inventory=0, supplier_stock=0),
     ]
-    specs += [
-        scenario(
-            horizon=rng.randint(1, 4),
-            initial_inventory=rng.randint(0, 8),
-            initial_cash=rng.randint(0, 16),
-            supplier_stock=rng.randint(0, 18),
-            shipment_size=rng.randint(1, 6),
-            demand_per_tick=rng.randint(1, 5),
-            standard_cost=rng.randint(1, 8),
-            express_cost=rng.randint(1, 8),
-            standard_lead=rng.randint(1, 5),
-            express_lead=rng.randint(1, 5),
-        )
-        for _ in range(35)
-    ]
+    specs += [disturbed_scenario(rng) for _ in range(35)]
     for spec in specs:
         for goal in (
             Goal(),
@@ -418,3 +463,177 @@ def test_observations_are_explicit_role_projections_and_detached():
     assert state.shipments == [Shipment(due_tick=2, quantity=8)]
     with pytest.raises(ValueError):
         observe(state, "admin")
+
+
+def test_demand_spike_changes_only_its_own_tick_and_keeps_demand_accounting():
+    spec = scenario(
+        horizon=3,
+        demand_per_tick=4,
+        initial_inventory=4,
+        supplier_stock=0,
+        disturbances=[{"tick": 2, "kind": "demand_spike", "amount": 3}],
+    )
+    run = simulate(spec, [])
+    frames = {frame.state.tick: frame for frame in run.frames}
+    assert frames[1].state.shortage == 0
+    assert frames[2].state.shortage == 7
+    assert frames[3].state.shortage == 11
+    assert frames[2].state.delivered + frames[2].state.shortage == 11
+    assert frames[3].state.delivered + frames[3].state.shortage == 15
+    assert "disturbance demand_spike at tick 2: demand 4 -> 7" in frames[2].events
+    assert "demand 7 [base 4 + spikes 3]: delivered 0; shortage 7" in frames[2].events
+    assert not any("disturbance" in event for event in frames[1].events + frames[3].events)
+    assert run.rule_version == "supply-chain.v2"
+    assert cumulative_demand(spec, 1) == 4
+    assert cumulative_demand(spec, 3) == 15
+    for frame in run.frames:
+        assert_invariants(spec, frame.state)
+
+
+def test_supplier_loss_applies_after_the_turn_purchase_is_clamped_and_never_carries():
+    spec = scenario(
+        horizon=3,
+        initial_inventory=0,
+        demand_per_tick=4,
+        supplier_stock=8,
+        shipment_size=8,
+        standard_cost=16,
+        express_cost=32,
+        standard_lead=1,
+        express_lead=1,
+        disturbances=[{"tick": 2, "kind": "supplier_loss", "amount": 100}],
+    )
+    idle = simulate(spec, [])
+    second, third = idle.frames[2], idle.frames[3]
+    assert (second.state.lost, second.state.supplier_stock) == (8, 0)
+    assert third.state.lost == 8
+    assert idle.final_state.shortage == 12
+    assert (
+        "disturbance supplier_loss at tick 2: declared 100, lost 8, stock 8 -> 0" in second.events
+    )
+    # Exogenous events apply before demand service of the same tick but after arrivals.
+    assert second.events.index(
+        "disturbance supplier_loss at tick 2: declared 100, lost 8, stock 8 -> 0"
+    ) < second.events.index("demand 4: delivered 0; shortage 4")
+    # A purchase on the previous turn moves goods out of supplier custody first.
+    protected = simulate(spec, ["order_standard"])
+    assert protected.final_state.lost == 0
+    assert protected.final_state.delivered == 8
+    assert protected.final_state.shortage == 4
+    assert "declared 100, lost 0, stock 0 -> 0" in protected.frames[2].events[1]
+    # A declared loss larger than the remaining stock destroys only the remainder.
+    partial = scenario(
+        horizon=2,
+        supplier_stock=8,
+        disturbances=[{"tick": 2, "kind": "supplier_loss", "amount": 3}],
+    )
+    clamp = simulate(partial, []).frames[2].state
+    assert (clamp.lost, clamp.supplier_stock) == (3, 5)
+    with pytest.raises(ValueError, match="lost goods"):
+        simulate(partial, [], start=initial_state(partial).model_copy(update={"lost": 300}))
+
+
+@pytest.mark.parametrize(
+    "horizon,disturbances",
+    [
+        (3, [{"tick": 4, "kind": "demand_spike", "amount": 1}]),
+        (3, [{"tick": 0, "kind": "demand_spike", "amount": 1}]),
+        (
+            3,
+            [
+                {"tick": 2, "kind": "demand_spike", "amount": 1},
+                {"tick": 2, "kind": "demand_spike", "amount": 2},
+            ],
+        ),
+        (3, [{"tick": 2, "kind": "demand_spike", "amount": 21}]),
+        (3, [{"tick": 2, "kind": "demand_spike", "amount": 0}]),
+        (3, [{"tick": 2, "kind": "supplier_loss", "amount": 201}]),
+        (3, [{"tick": 2, "kind": "earthquake", "amount": 1}]),
+        (3, [{"tick": 2, "kind": "supplier_loss", "amount": True}]),
+        (3, [{"tick": 2, "kind": "supplier_loss", "amount": 1, "reason": "hidden"}]),
+        (
+            10,
+            [
+                {"tick": tick, "kind": kind, "amount": 1}
+                for tick in range(1, 7)
+                for kind in ("demand_spike", "supplier_loss")
+            ][:11],
+        ),
+    ],
+)
+def test_schedule_validation_bounds(horizon, disturbances):
+    with pytest.raises(ValidationError):
+        scenario(horizon=horizon, disturbances=disturbances)
+
+
+def test_rule_version_is_derived_and_schedule_free_specs_cannot_report_losses():
+    clean = scenario(horizon=2)
+    assert rule_version_for(clean) == "supply-chain.v1"
+    assert simulate(clean, []).rule_version == "supply-chain.v1"
+    assert search(clean, Goal(max_shortage=200)).rule_version == "supply-chain.v1"
+    scheduled = scenario(
+        horizon=2, disturbances=[{"tick": 2, "kind": "supplier_loss", "amount": 4}]
+    )
+    assert rule_version_for(scheduled) == "supply-chain.v2"
+    assert simulate(scheduled, []).rule_version == "supply-chain.v2"
+    assert search(scheduled, Goal(max_shortage=200)).rule_version == "supply-chain.v2"
+    mislabelled = simulate(scheduled, []).model_dump(mode="json")
+    mislabelled["rule_version"] = "supply-chain.v1"
+    with pytest.raises(ValueError):
+        validate_trajectory(scheduled, Trajectory.model_validate(mislabelled))
+    verified = simulate(clean, []).model_dump(mode="json")
+    verified["rule_version"] = "supply-chain.v2"
+    with pytest.raises(ValueError):
+        validate_trajectory(clean, Trajectory.model_validate(verified))
+    with pytest.raises(ValueError, match="lost goods"):
+        simulate(clean, [], start=initial_state(clean).model_copy(update={"lost": 1}))
+
+
+def test_scheduled_goal_search_verifies_plans_against_the_schedule():
+    spec = scenario(
+        horizon=2,
+        initial_inventory=4,
+        demand_per_tick=4,
+        supplier_stock=8,
+        shipment_size=8,
+        standard_cost=16,
+        express_cost=32,
+        standard_lead=1,
+        express_lead=1,
+        initial_cash=160,
+        disturbances=[{"tick": 2, "kind": "demand_spike", "amount": 4}],
+    )
+    result = search(spec, Goal(max_shortage=0, max_spend=100), max_nodes=50000)
+    assert result.status == "found" and result.exhausted
+    assert result.rule_version == "supply-chain.v2"
+    best = result.plans[0]
+    assert best.actions[0] == "order_standard"
+    assert best.final_state.spent == 16
+    assert best.final_state.shortage == 0
+    assert "disturbance demand_spike at tick 2: demand 4 -> 8" in best.frames[2].events
+    assert best.frames[2].state.delivered + best.frames[2].state.shortage == 12
+    for plan in result.plans:
+        assert plan.goal_met is True
+        assert validate_trajectory(spec, plan)
+        assert plan.final_state.shortage == 0
+    # A spike the actor cannot fund makes the goal unreachable in the finite model;
+    # ignoring the schedule must never be reported as a plan.
+    poor = scenario(
+        horizon=2,
+        initial_inventory=4,
+        demand_per_tick=4,
+        supplier_stock=8,
+        shipment_size=8,
+        standard_cost=16,
+        express_cost=32,
+        standard_lead=1,
+        express_lead=1,
+        initial_cash=16,
+        disturbances=[{"tick": 2, "kind": "demand_spike", "amount": 20}],
+    )
+    blocked = search(poor, Goal(max_shortage=0, max_spend=10000), max_nodes=50000)
+    assert blocked.status == "no_solution" and blocked.exhausted and blocked.plans == []
+    relaxed = search(poor, Goal(max_shortage=20, max_spend=10000), max_nodes=50000)
+    assert relaxed.status == "found"
+    assert relaxed.plans and all(plan.final_state.shortage <= 20 for plan in relaxed.plans)
+    assert all(validate_trajectory(poor, plan) for plan in relaxed.plans)

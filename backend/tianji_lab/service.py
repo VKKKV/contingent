@@ -12,7 +12,15 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import kernel
-from .models import Action, Goal, Scenario, State, Trajectory
+from .models import (
+    RULE_VERSION_V1,
+    Action,
+    Goal,
+    RuleVersion,
+    Scenario,
+    State,
+    Trajectory,
+)
 from .store import Store, canonical
 
 Identifier = Annotated[str, Field(min_length=1, max_length=100)]
@@ -93,7 +101,7 @@ class WorkspaceUpdate(ById):
 
 
 class Provenance(Input):
-    rule_version: Literal["supply-chain.v1"] = "supply-chain.v1"
+    rule_version: RuleVersion = RULE_VERSION_V1
     policy: Literal["rules-v1"] = "rules-v1"
     scenario: Literal["fictional"] = "fictional"
     interpretation: Literal["model-conditional"] = "model-conditional"
@@ -334,6 +342,17 @@ class Service:
 
     def _verify_branch(self, branch):
         spec, trajectory = branch.spec, branch.trajectory
+        # The rule label is a pure function of the frozen specification. A bundle
+        # that claims the pre-disturbance rules while carrying a schedule (or a
+        # loss) is rejected rather than silently relabelled.
+        expected_rules = kernel.rule_version_for(spec)
+        if trajectory.rule_version != expected_rules:
+            raise ValueError(
+                "Declared rule version does not match the frozen specification "
+                f"({trajectory.rule_version} vs {expected_rules})"
+            )
+        if branch.provenance.rule_version != expected_rules:
+            raise ValueError("Branch provenance rule version contradicts its specification")
         prefix = branch.provenance.prefix_actions
         state = kernel.initial_state(spec)
         for action in prefix:
@@ -630,7 +649,9 @@ class Service:
                         )
                         for trajectory in trajectories:
                             provenance = Provenance(
-                                prefix_actions=payload["prefix_actions"], goal=payload.get("goal")
+                                prefix_actions=payload["prefix_actions"],
+                                goal=payload.get("goal"),
+                                rule_version=kernel.rule_version_for(payload["spec"]),
                             )
                             branch = Branch(
                                 id=uid(),

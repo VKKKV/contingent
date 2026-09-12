@@ -4,9 +4,16 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-RULE_VERSION = "supply-chain.v1"
+# v1 is the M1 transition model. v2 adds only the explicit exogenous-disturbance
+# schedule; a specification without a schedule is still exactly v1 semantics, so
+# the version is derived from the specification rather than claimed by a caller.
+RULE_VERSION_V1 = "supply-chain.v1"
+RULE_VERSION_V2 = "supply-chain.v2"
+
 Action = Literal["wait", "order_standard", "order_express"]
 Role = Literal["director", "retailer", "supplier"]
+RuleVersion = Literal["supply-chain.v1", "supply-chain.v2"]
+DisturbanceKind = Literal["demand_spike", "supplier_loss"]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
@@ -14,6 +21,14 @@ class Model(BaseModel):
     model_config = ConfigDict(
         extra="forbid", strict=True, frozen=True, revalidate_instances="always"
     )
+
+
+class Disturbance(Model):
+    """One exogenous event, declared explicitly. No randomness and no seed."""
+
+    tick: int = Field(ge=1, le=10)
+    kind: DisturbanceKind
+    amount: int = Field(ge=1, le=200)
 
 
 class Scenario(Model):
@@ -28,13 +43,35 @@ class Scenario(Model):
     express_cost: int = Field(default=32, ge=1, le=1000)
     standard_lead: int = Field(default=2, ge=1, le=5)
     express_lead: int = Field(default=1, ge=1, le=5)
+    disturbances: list[Disturbance] = Field(default_factory=list, max_length=10)
     description: str | None = Field(
         default=(
             "Fictional civilian supply chain with fixed demand, finite stock, "
-            "and rules-v1 ordering; results are model-conditional, not predictions."
+            "explicit exogenous disturbances and rules-v2 ordering; results are "
+            "model-conditional, not predictions."
         ),
         max_length=2000,
     )
+
+    @model_validator(mode="after")
+    def bounded_schedule(self) -> "Scenario":
+        seen: set[tuple[int, str]] = set()
+        for disturbance in self.disturbances:
+            if disturbance.tick > self.horizon:
+                raise ValueError(
+                    "disturbance tick "
+                    f"{disturbance.tick} is beyond the scenario horizon {self.horizon}"
+                )
+            key = (disturbance.tick, disturbance.kind)
+            if key in seen:
+                raise ValueError(
+                    f"duplicate {disturbance.kind} at tick {disturbance.tick}; "
+                    "declare one entry per tick and kind"
+                )
+            seen.add(key)
+            if disturbance.kind == "demand_spike" and disturbance.amount > 20:
+                raise ValueError("demand spike amount must be at most 20")
+        return self
 
 
 class Goal(Model):
@@ -55,8 +92,11 @@ class State(Model):
     cash: int = Field(ge=0, le=10000)
     supplier_stock: int = Field(ge=0, le=200)
     delivered: int = Field(ge=0, le=200)
-    shortage: int = Field(ge=0, le=200)
+    shortage: int = Field(ge=0, le=400)
     spent: int = Field(ge=0, le=10000)
+    # Goods destroyed by an exogenous supplier loss. Never negative, and always
+    # part of the conservation total; it is not recoverable inventory.
+    lost: int = Field(default=0, ge=0, le=400)
     shipments: list[Shipment] = Field(default_factory=list, max_length=10)
 
 
@@ -73,7 +113,7 @@ class Trajectory(Model):
     final_state: State
     state_hash: Digest
     goal_met: bool | None = None
-    rule_version: Literal["supply-chain.v1"] = RULE_VERSION
+    rule_version: RuleVersion
 
 
 class SearchResult(Model):
@@ -81,7 +121,7 @@ class SearchResult(Model):
     expanded: int = Field(ge=0, le=50000)
     exhausted: bool
     status: Literal["found", "no_solution", "budget_exhausted"]
-    rule_version: Literal["supply-chain.v1"] = RULE_VERSION
+    rule_version: RuleVersion
 
     @model_validator(mode="after")
     def consistent_status(self) -> "SearchResult":

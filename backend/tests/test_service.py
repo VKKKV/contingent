@@ -103,6 +103,53 @@ def test_forward_backward_frozen_fork_import(service):
         )
 
 
+def test_scheduled_scenario_freezes_the_schedule_and_reports_real_events(service):
+    scenario = call(service, "scenario_list")["items"][0]
+    schedule = [{"tick": 2, "kind": "demand_spike", "amount": 4}]
+    updated = call(
+        service,
+        "scenario_update",
+        id=scenario["id"],
+        revision=1,
+        spec={**scenario["spec"], "disturbances": schedule},
+    )
+    assert updated["revision"] == 2
+    assert updated["spec"]["disturbances"] == schedule
+    forward = finish(service, call(service, "run_forward", scenario_id=scenario["id"], actions=[]))[
+        "branch"
+    ]
+    assert forward["spec"]["disturbances"] == schedule
+    assert forward["trajectory"]["rule_version"] == "supply-chain.v2"
+    assert forward["provenance"]["rule_version"] == "supply-chain.v2"
+    events = [event for frame in forward["trajectory"]["frames"] for event in frame["events"]]
+    assert sum("disturbance demand_spike at tick 2" in event for event in events) == 1
+    final = forward["trajectory"]["final_state"]
+    assert final["delivered"] + final["shortage"] == 6 * 4 + 4
+    # Frozen assumptions survive a later revision of the scenario.
+    call(
+        service,
+        "scenario_update",
+        id=scenario["id"],
+        revision=2,
+        spec={**updated["spec"], "name": "changed after the run"},
+    )
+    assert call(service, "branch_get", id=forward["id"])["spec"]["disturbances"] == schedule
+    backward = finish(
+        service,
+        call(
+            service,
+            "run_backward",
+            scenario_id=scenario["id"],
+            goal={"max_shortage": 200, "max_spend": 10000},
+            max_nodes=5000,
+        ),
+    )
+    assert backward["search"]["rule_version"] == "supply-chain.v2"
+    assert all(
+        branch["trajectory"]["rule_version"] == "supply-chain.v2" for branch in backward["branches"]
+    )
+
+
 def test_workspace_cas_and_tick(service):
     workspace = call(service, "workspace_attach")
     updated = call(service, "workspace_update", id=workspace["id"], revision=1, panel="goal")

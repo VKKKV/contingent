@@ -81,3 +81,41 @@ def test_repeated_import_preserves_parent_provenance_and_revision_limit(tmp_path
         forged["branch"]["trajectory"]["goal_met"] = True
         forged["digest"] = digest(forged["branch"])
         assert post(client, "branch_import", {"bundle": forged}).status_code == 422
+
+
+def test_pre_disturbance_bundles_still_import_and_mislabelled_schedules_are_rejected(tmp_path):
+    with TestClient(create_app(tmp_path, token="test", start_worker=False)) as client:
+        client.headers["Authorization"] = "Bearer test"
+        # Emulate a bundle exported before the exogenous-disturbance slice.
+        legacy = bundle()
+        del legacy["branch"]["spec"]["disturbances"]
+        for frame in legacy["branch"]["trajectory"]["frames"]:
+            del frame["state"]["lost"]
+        del legacy["branch"]["trajectory"]["final_state"]["lost"]
+        legacy["digest"] = digest(legacy["branch"])
+        imported = post(client, "branch_import", {"bundle": legacy}).json()["data"]
+        assert imported["spec"]["disturbances"] == []
+        assert imported["trajectory"]["rule_version"] == "supply-chain.v1"
+        assert imported["trajectory"]["final_state"]["lost"] == 0
+        # A real schedule under the current label imports and keeps the schedule.
+        schedule = [{"tick": 2, "kind": "supplier_loss", "amount": 4}]
+        spec = Scenario(name="Scheduled import", horizon=3, disturbances=schedule)
+        scheduled = bundle()
+        scheduled["branch"]["spec"] = spec.model_dump()
+        scheduled["branch"]["trajectory"] = simulate(spec, []).model_dump()
+        scheduled["branch"]["provenance"] = {"rule_version": "supply-chain.v2"}
+        scheduled["digest"] = digest(scheduled["branch"])
+        accepted = post(client, "branch_import", {"bundle": scheduled}).json()["data"]
+        assert accepted["trajectory"]["rule_version"] == "supply-chain.v2"
+        assert accepted["spec"]["disturbances"] == schedule
+        assert accepted["trajectory"]["final_state"]["lost"] == 4
+        # Claiming the pre-disturbance rules while carrying a schedule is refused,
+        # never silently relabelled.
+        relabelled = copy.deepcopy(scheduled)
+        relabelled["branch"]["trajectory"]["rule_version"] = "supply-chain.v1"
+        relabelled["digest"] = digest(relabelled["branch"])
+        assert post(client, "branch_import", {"bundle": relabelled}).status_code == 422
+        inconsistent = copy.deepcopy(scheduled)
+        inconsistent["branch"]["provenance"] = {"rule_version": "supply-chain.v1"}
+        inconsistent["digest"] = digest(inconsistent["branch"])
+        assert post(client, "branch_import", {"bundle": inconsistent}).status_code == 422
