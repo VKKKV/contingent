@@ -1,5 +1,55 @@
 # TianJi handoff
 
+## Session state (2026-09-12, session closed)
+
+Resume point. Working tree is clean, branch `feat/world-simulation-lab`, nothing pushed; `origin` is
+configured as `git@github.com:VKKKV/tianji.git` and `main` tracks it at `a5a3c65`, which is this
+branch's base. Publishing stays a user action.
+
+Commits added this session (oldest first):
+
+- `b3ddef8`, `8532815`, `39aeef8`, `b8ed4ff`, `cd1f616` - M1 (Python/FastAPI service + MCP adapter,
+  React workbench, real-browser acceptance script, root docs and guide, Trellis task and lab spec).
+- `f69108f` - documentation cleanup: removed 44 superseded files (-4188 lines): 32 completed legacy
+  Rust `phase-*.md` design drafts, the four one-off `spec/docs/phase-*` notes, both `.trellis/reviews/`
+  files, the stale root `RELEASE_CHECKLIST.md` and the separate simulation-library evidence record,
+  with every reference that pointed at them fixed.
+- `1025bc0`, `6146a76`, `f347a55`, `1bca4c2`, `8a768d4` - M2 slice 1 (exogenous disturbances) across
+  kernel/service, workbench, browser acceptance, docs/contract and the task record.
+- `6d264f4` - archived the slice-1 task; `13389bc` - this handoff's path fix.
+
+Re-run these before trusting any claim above (from the repository root):
+
+```bash
+uv run --project backend --locked pytest backend/tests -q
+uv run --project backend --locked ruff check backend
+uv run --project backend --locked ruff format --check backend
+npm --prefix web test
+npm --prefix web run format:check
+npm --prefix web run build
+uv run --project backend --group browser python scripts/check-lab-browser.py   # real Chromium
+```
+
+Last recorded results: backend 103 passed, frontend 18 passed, browser 17/17 checks, all clean. The
+browser script prints its artifact directory (screenshots plus `report.json`); that directory is under
+`/tmp` and is regenerable, while the machine-readable report is committed in the archived task.
+
+Bookkeeping and deliberate leftovers:
+
+- `.trellis/tasks/09-10-world-simulation-lab/` still reports `in_progress` on purpose; its
+  remaining scope is the next slice. The slice-1 task is archived under
+  `.trellis/tasks/archive/2026-09/09-12-m2-exogenous-disturbances/`.
+- `.trellis/.backup-2026-05-13T04-45-49/` and `.trellis/.backup-2026-06-09T04-35-12/` (about 2.4 MB)
+  are gitignored Trellis backups. Deleting them is irreversible in Git, so they were left alone;
+  remove only on an explicit request.
+- Legacy Rust (`src/`, Cargo files, `profiles/`) and all 8 `runs/*.sqlite3` files are untouched by
+  this session.
+- Nothing is pushed; publishing stays a user action.
+
+Not started: M2 slice 2 (multi-actor private observation with independent adjudication). Confirmation
+gates remain: model provider/budget, legacy data migration, remote deployment, real-world action
+integration.
+
 ## M2 slice 1 delivered - exogenous disturbances with recorded replay (2026-09-12)
 
 Status: implemented, verified and committed on branch `feat/world-simulation-lab`. Nothing was
