@@ -4,7 +4,14 @@ Scope: new `backend/` Python and `web/` TypeScript code. The user selected TypeS
 
 ## Before development
 
-Read the active task's prd.md and m1-contract.md, then architecture.md for long-term intent. Read [execution-contract.md](execution-contract.md) for current schemas, lifecycle, errors and executable regression gates. M1 contract governs exact models, operation names and bounded acceptance; do not silently expand APIs or substitute demo responses. Read ../guides/cross-layer-thinking-guide.md. Parent owns task/plan/README updates; implementers own only assigned paths.
+Read the [M1 slice record](../../milestones/2026-09-m1-world-simulation-lab/prd.md), especially
+[m1-contract.md](../../milestones/2026-09-m1-world-simulation-lab/m1-contract.md), then
+[architecture.md](../../milestones/2026-09-m1-world-simulation-lab/architecture.md) for long-term
+intent. Read [execution-contract.md](execution-contract.md) for current schemas, lifecycle, errors and
+executable regression gates. The M1 contract governs exact models, operation names and bounded
+acceptance; do not silently expand APIs or substitute demo responses. Read
+[../guides/cross-layer-thinking-guide.md](../guides/cross-layer-thinking-guide.md). Milestone records
+live under `docs/milestones/`; docs own only the paths assigned to them.
 
 ## Conventions
 

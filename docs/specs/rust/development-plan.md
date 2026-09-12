@@ -222,7 +222,7 @@ local-first verification plan.
 ## Documentation Rules
 
 - `plan.md` is the authority for architecture, project structure, and build phases.
-- Trellis specs should be updated before claiming a Rust layer is current.
+- The spec documents in `docs/specs/` should be updated before claiming a Rust layer is current.
 - Historical Python-oracle references must be explicitly labelled as historical/superseded.
 - New examples should use `cargo run -- ...` or `tianji ...`, not `python3 -m tianji`.
 

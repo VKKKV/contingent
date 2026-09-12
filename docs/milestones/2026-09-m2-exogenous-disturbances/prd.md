@@ -62,12 +62,12 @@ Out of scope (still gated or deferred):
 - [ ] Pre-disturbance bundles still import and replay; a schedule-bearing bundle labelled with the
       pre-disturbance rules is rejected.
 - [ ] Documentation matches the delivered behavior: `docs/laboratory.md`, `README.md`,
-      `.trellis/spec/lab/execution-contract.md`, and this task's contract.
+      `docs/specs/lab/execution-contract.md`, and this slice's contract.
 - [ ] Legacy Rust files and existing `runs/*.sqlite3` remain untouched.
 
 ## Sources
 
-- `.trellis/tasks/09-10-world-simulation-lab/m1-contract.md` — current executable M1 contract.
-- `.trellis/tasks/09-10-world-simulation-lab/architecture.md` — milestone definitions and gates.
-- `docs/laboratory.md` — operator guide for the delivered M1 behavior.
-- `.trellis/spec/lab/execution-contract.md` — current schemas, lifecycle, errors, regression gates.
+- [M1 contract](../2026-09-m1-world-simulation-lab/m1-contract.md) — current executable M1 contract.
+- [M1 architecture](../2026-09-m1-world-simulation-lab/architecture.md) — milestone definitions and gates.
+- [Laboratory guide](../../laboratory.md) — operator guide for the delivered M1 behavior.
+- [Execution contract](../../specs/lab/execution-contract.md) — current schemas, lifecycle, errors, regression gates.

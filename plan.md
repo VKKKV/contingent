@@ -1,6 +1,6 @@
 # TianJi (天机) — Development Plan v6
 
-> New direction approved 2026-09-10: **Bidirectional World Simulation Laboratory**, Web-first and agent-operable, implemented with TypeScript/React + Python/FastAPI. M1 is delivered and verified on branch `feat/world-simulation-lab` (status, evidence and commit plan in handoff.md). The active implementation authority for new `backend/` and `web/` code is [.trellis/tasks/09-10-world-simulation-lab/m1-contract.md](.trellis/tasks/09-10-world-simulation-lab/m1-contract.md), with broader design in [architecture.md](.trellis/tasks/09-10-world-simulation-lab/architecture.md).
+> New direction approved 2026-09-10: **Bidirectional World Simulation Laboratory**, Web-first and agent-operable, implemented with TypeScript/React + Python/FastAPI. M1 and the exogenous-disturbance slice are delivered and verified on branch `feat/world-simulation-lab` (status and evidence in handoff.md; slice records under [docs/milestones/](docs/milestones/)). The active implementation authority for new `backend/` and `web/` code is [m1-contract.md](docs/milestones/2026-09-m1-world-simulation-lab/m1-contract.md), extended by [m2-contract.md](docs/milestones/2026-09-m2-exogenous-disturbances/m2-contract.md) and [execution-contract.md](docs/specs/lab/execution-contract.md), with broader design in [architecture.md](docs/milestones/2026-09-m1-world-simulation-lab/architecture.md).
 > The remainder of this file records the **legacy Rust v0.2 baseline**, not a requirement to port heuristic probabilities or CLI-first behavior into the new product. Rust source and existing databases are preserved; no destructive migration is authorized. M1 delivery status must be verified by real tests and browser operation, not inferred from this approval.
 
 > Branch: `main` | Updated: 2026-06-09
@@ -235,7 +235,7 @@ Files: `src/tui/*`, `src/storage.rs`, `src/worldline/*`
 
 ## 3.5 Cross-Project Borrowings (ShadowBroker v0.9.7 → TianJi)
 
-> Full analysis: removed in the 2026-09 documentation cleanup; recover from Git history at `.trellis/reviews/shadowbroker-cross-project-analysis.md`.
+> Full analysis: removed during the 2026-09 documentation cleanup (the former `.trellis/reviews/` tree no longer exists in the repository); recover it from Git history.
 > Repo: external ShadowBroker checkout used for historical cross-project analysis
 
 Borrowing adoption status after Phase D/E:

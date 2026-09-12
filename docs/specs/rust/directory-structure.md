@@ -79,18 +79,18 @@ Each pipeline stage gets its own module, grouped under subsystem namespaces:
 
 ### Spec Document Naming
 
-Specification documents under `.trellis/spec/` use **lowercase kebab-case** filenames.
+Specification documents under `docs/specs/` use **lowercase kebab-case** filenames.
 
 ```text
-.trellis/spec/backend/scoring-spec.md
-.trellis/spec/backend/contracts/local-api-contract.md
+docs/specs/rust/scoring-spec.md
+docs/specs/rust/contracts/local-api-contract.md
 ```
 
 ### Forbidden Patterns
 
 - **No `utils.rs` catch-all** — every file has a specific purpose and name
 - **No premature subsystem directories** — create `cangjie/` when it has 3+ files, not before
-- **No root-doc uppercase names inside `.trellis/spec/`** — use lowercase kebab-case
+- **No root-doc uppercase names inside `docs/specs/`** — use lowercase kebab-case
 
 ---
 

@@ -163,7 +163,7 @@ See `error-handling.md` for full details.
 
 ### Spec Document Naming
 
-Specification documents under `.trellis/spec/` use **lowercase kebab-case** filenames.
+Specification documents under `docs/specs/` use **lowercase kebab-case** filenames.
 
 ### Determinism and Hot-Path Helpers
 

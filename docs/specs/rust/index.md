@@ -64,11 +64,12 @@ Before writing Rust code:
 | [Development Plan](./development-plan.md) | Rust migration milestones and guardrails |
 | [Source Feed Management](./source-feed-management.md) | Source registry, fixture sources and health history |
 | [Evaluation Harness](./evaluation-harness.md) | Fixture eval corpus, golden cases and drift checks |
-| [Rust Rewrite Plan](../../plan.md) | Full Rust rewrite vision: Cangjie/Fuxi/Hongmeng/Nuwa architecture, TUI spec, dependency list |
+| [Rust Rewrite Plan](../../../plan.md) | Full Rust rewrite vision: Cangjie/Fuxi/Hongmeng/Nuwa architecture, TUI spec, dependency list |
 
 The per-phase design drafts (`phase-*.md`) were completed and removed during the 2026-09 documentation cleanup as superseded history. They remain recoverable from Git history; do not re-add them as current authority.
 
-New Python/TypeScript work is scoped by [../lab/index.md](../lab/index.md) and the active task contract under `.trellis/tasks/`.
+New Python/TypeScript work is scoped by [../lab/index.md](../lab/index.md) and the
+[milestone records](../../milestones/).
 
 ---
 

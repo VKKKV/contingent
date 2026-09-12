@@ -27,7 +27,7 @@ uv run --project backend --locked python -m tianji_lab serve \
 
 Open http://127.0.0.1:8787. The service prints the path of a mode-0600 `token` file in the chosen data directory; paste its contents into the connection form. Tokens are never placed in URLs. Reuse the data directory to keep experiments. Only one service may own it. No legacy database migration occurs.
 
-For development, run `npm --prefix web run dev` alongside the API. For MCP setup, model rules, acceptance commands and limitations, see [Laboratory guide](docs/laboratory.md). Product requirements and the accepted language decision are recorded in the [active Trellis task](.trellis/tasks/09-10-world-simulation-lab/prd.md).
+For development, run `npm --prefix web run dev` alongside the API. For MCP setup, model rules, acceptance commands and limitations, see [Laboratory guide](docs/laboratory.md). Product requirements, milestone contracts and verification records live under [docs/milestones/](docs/milestones/); the engineering contract is [docs/specs/lab/](docs/specs/lab/).
 
 ### Validation
 

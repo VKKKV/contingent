@@ -186,7 +186,7 @@ plus re-import.
   must be replaced by "disturbances are an explicit schedule; randomness is still absent", and the
   limitations list.
 - `README.md`: the active-slice bullet list.
-- `.trellis/spec/lab/execution-contract.md`: the rule-version derivation and the import compatibility
+- `docs/specs/lab/execution-contract.md`: the rule-version derivation and the import compatibility
   rule.
 
 ## 7. Non-goals for this slice
