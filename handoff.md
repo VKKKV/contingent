@@ -3,9 +3,8 @@
 ## M2 slice 1 delivered - exogenous disturbances with recorded replay (2026-09-12)
 
 Status: implemented, verified and committed on branch `feat/world-simulation-lab`. Nothing was
-pushed. Task record (prd, executable contract, verification, browser report) lives at
-`.trellis/tasks/09-12-m2-exogenous-disturbances/`; it is archived by the Trellis archive commit that
-follows this one.
+pushed. Task record (prd, executable contract, verification, browser report) is archived at
+`.trellis/tasks/archive/2026-09/09-12-m2-exogenous-disturbances/`.
 
 ### What this slice delivers
 
@@ -34,7 +33,7 @@ follows this one.
 - real browser acceptance (Chromium 151.0.7922.34, isolated data directory): 17 checks passed - the
   16 M1 checks plus the schedule editor, client-side rejection, timeline markers, `lost`, the real
   forward run on a scheduled scenario, and export/import round-trip. Report:
-  `.trellis/tasks/09-12-m2-exogenous-disturbances/research/browser-acceptance-m2.json`.
+  `.trellis/tasks/archive/2026-09/09-12-m2-exogenous-disturbances/research/browser-acceptance-m2.json`.
 - MCP path verified through the official SDK: scheduled scenario created and run through the adapter
   returns `rule_version = supply-chain.v2` with the real loss.
 - Legacy Rust tree untouched; the 8 existing `runs/*.sqlite3` files untouched.
