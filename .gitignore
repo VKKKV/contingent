@@ -16,11 +16,6 @@ backend/.local-data/
 *.sqlite3-wal
 *.sqlite3-shm
 
-# Rust
-target/
-*.rs.bk
-*.pdb
-
 # Backup files
 *.backup
 

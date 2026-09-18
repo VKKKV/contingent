@@ -2,7 +2,7 @@
 
 ## 1. Scope / trigger
 
-Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario, branch, job, workspace or import schema changes. The model is a fictional `supply-chain` kernel whose rule label is derived from the frozen specification: an empty exogenous-disturbance schedule is `supply-chain.v1`, a non-empty one is `supply-chain.v2`. All external clients are local directors. Participant projections and saved observations are not deployed per-user authorization. The offline adjudication service retains director-only, independently kernel-checked previews; it never mutates a recorded branch. See the [M2 slice 2 contract](../../milestones/2026-09-m2-private-observation-adjudication/m2-contract.md).
+Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario, branch, job, workspace or import schema changes. The model is a fictional `supply-chain` kernel whose rule label is derived from the frozen specification: an empty exogenous-disturbance schedule is `supply-chain.v1`, a non-empty one is `supply-chain.v2`. All external clients are local directors. Participant projections and saved observations are not deployed per-user authorization. The offline adjudication service retains director-only, independently kernel-checked previews; it never mutates a recorded branch.
 
 ## 2. Signatures
 
@@ -24,6 +24,26 @@ The workspace stores selected scenario (including empty scenarios), selected bra
 Jobs freeze scenario/spec/revision on enqueue. One supervisor spawns a bounded subprocess and commits results only while job status is running. Queue max32, search max50000, subprocess wall limit30s. Cancellation prevents branch commit; shutdown/restart interrupts running work, queued jobs survive. Do not use the HTTP event loop for CPU search.
 
 Replay bundles prove internal consistency, not origin authenticity. Reconstruct initial/fork state from frozen spec and complete prefix actions; then replay every continuation frame, event, goal predicate and hash. Retain `imported_parent_id` across repeated export/import; discard live foreign-key parent links on external imports. A bundle's declared `rule_version` and provenance must agree with `rule_version_for(spec)`; a schedule-bearing branch labelled with the pre-disturbance rules is rejected, never relabelled. Bundles exported before the disturbance slice (no `disturbances`, no `lost` keys) remain valid and replay under v1 semantics, because the digest covers the supplied branch object rather than a re-serialized model.
+
+## Local model proposal
+
+`actor_propose` takes only `observation_id` and returns an inert `ActionProposal`. It is a
+nonmutating explicit inference request, not a cached read: repeated calls may differ. No
+idempotency record, prompt, raw response, job or branch is created. Saved observation integrity
+and frozen branch replay are checked before inference; SQLite is released before network IO.
+
+`TIANJI_LOCAL_MODEL_URL` must be a literal loopback HTTP origin without paths, credentials or
+redirects. `TIANJI_LOCAL_MODEL_NAME` names the model. Configuration is read at service start.
+Only one in-flight call is allowed per process; total timeout is 30 seconds, output budget 96 tokens,
+response bound 16 KiB. Proxy environment is ignored. The model receives role projection and an
+explicit public-rule allowlist, never the full specification/state, actor identity or tokens.
+
+Output must be exactly one JSON action, without refusal, tool calls, reasoning or truncation.
+Actor/role/hash/policy (`local.llamacpp.v1`) are server-bound. Permissions, affordability and horizon
+remain authoritative adjudication decisions. Errors: `actor_disabled`/`actor_unavailable` (503),
+`actor_busy` (409), `actor_invalid_output` (502). No failure invents an action. The Web leaves
+adjudication explicit and drops late proposals after selection/identity changes. Editing the action
+switches attribution to `manual.director.v1`.
 
 ## 4. Validation and error matrix
 
@@ -55,9 +75,9 @@ Bad: forge a fork start while recomputing outer digest; import must reject again
 - `tests/test_workspace.py`: scenario/branch/compare selection, empty scenarios, contradictory IDs, selected comparison invariants.
 - `tests/test_m2_private_observation.py`, `test_adjudication_service.py`: strict immutable projections and hashes, actor/role/context binding, independent referee label, role action permissions, real forward equality, persistence/restart, transactional idempotency/caps/rollback, frozen revisions, imported/fork identity, HTTP allowlists and unchanged branch/jobs/workspace.
 - `tests/test_api.py`, `test_mcp.py`: auth/origin/body bounds, actual CLI HTTP service and official MCP SDK initialization/list/call, published capability schema matching the live model.
-- `scripts/check-lab-browser.py`: actual Chromium create/edit/run/goal/fork/compare/import/export/cancel, schedule editing with client-side rejection, timeline markers and `lost`, external MCP visible selections, reload without old-job auto-selection, stale human edit preservation, layout and uncaught JS checks.
+- Frontend tests cover stale async selection, director proposal identity and manual/model policy attribution. Inspect real browser behavior when changing the workbench; do not store routine reports or screenshot archives.
 
-Build/test from a new snapshot without `.venv`, `node_modules`, `dist`, cached state or data. Do not use a one-off Vite resolver to bless a broken documented `npm run build` command.
+Use the documented test/build commands. Temporary test data is cleaned up; no per-session evidence archive or dedicated evaluation runner is required.
 
 ## 7. Wrong vs correct
 
