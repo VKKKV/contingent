@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
+  ActionProposal,
   Api,
   Capability,
   Operations,
@@ -14,6 +15,7 @@ import type { DirectorContext } from "./directorSession";
 const catalog: Capability[] = [
   "observation_create",
   "observation_get",
+  "actor_propose",
   "adjudication_create",
   "adjudication_get",
   "adjudication_list",
@@ -58,6 +60,13 @@ const observation: SavedObservation = {
     observation_hash: "observation-hash",
   },
 };
+const proposal: ActionProposal = {
+  actor_id: observation.observation.actor_id,
+  role: observation.observation.role,
+  action: "order_express",
+  observation_hash: observation.observation.observation_hash,
+  policy_id: "local.model.test.v1",
+};
 const receipt: SavedAdjudication = {
   id: "receipt-a",
   observation_id: observation.id,
@@ -94,6 +103,7 @@ function setup(overrides: Partial<DirectorContext> = {}) {
       _args?: Operations[keyof Operations][0],
     ): Promise<unknown> => {
       if (name === "adjudication_list") return { items: [] };
+      if (name === "actor_propose") return proposal;
       if (name.startsWith("observation_")) return observation;
       return receipt;
     },
@@ -339,6 +349,212 @@ describe("director observation and adjudication", () => {
       "adjudication_create",
     );
     valid.session.stop();
+  });
+});
+
+describe("explicit local model proposals", () => {
+  it("only proposes on request using the saved observation, without adjudication or a fork", async () => {
+    const { session, transport } = setup();
+    await session.propose();
+    await session.observe();
+    expect(transport.mock.calls.map(([name]) => name)).not.toContain(
+      "actor_propose",
+    );
+    transport.mockClear();
+    await session.propose();
+    expect(transport.mock.calls).toEqual([
+      ["actor_propose", { observation_id: observation.id }],
+    ]);
+    expect(session.getSnapshot()).toMatchObject({
+      proposal,
+      action: proposal.action,
+      result: null,
+      busy: false,
+    });
+    session.clearResult();
+    await session.adjudicate(proposal.action, "referee-a");
+    expect(transport).toHaveBeenCalledWith("adjudication_create", {
+      observation_id: observation.id,
+      adjudicator_id: "referee-a",
+      proposal,
+    });
+    session.stop();
+  });
+  it("keeps model provenance only while the proposed action is unchanged", async () => {
+    const { session, transport } = setup();
+    await session.observe();
+    await session.propose();
+    session.setAction(proposal.action);
+    expect(session.getSnapshot().proposal).toEqual(proposal);
+    session.setAction("wait");
+    expect(session.getSnapshot().proposal).toBeNull();
+    session.setAction(proposal.action);
+    await session.adjudicate(session.getSnapshot().action, "referee-a");
+    expect(transport).toHaveBeenCalledWith(
+      "adjudication_create",
+      expect.objectContaining({
+        proposal: { ...proposal, policy_id: "manual.director.v1" },
+      }),
+    );
+    session.stop();
+  });
+  it("does not attribute a directly submitted different action to the model", async () => {
+    const { session, transport } = setup();
+    await session.observe();
+    await session.propose();
+    await session.adjudicate("wait", "referee-a");
+    expect(transport).toHaveBeenCalledWith(
+      "adjudication_create",
+      expect.objectContaining({
+        proposal: {
+          ...proposal,
+          action: "wait",
+          policy_id: "manual.director.v1",
+        },
+      }),
+    );
+    session.stop();
+  });
+  it("clears the proposal when creating a new observation", async () => {
+    const { session } = setup();
+    await session.observe();
+    await session.propose();
+    const pending = session.observe();
+    expect(session.getSnapshot()).toMatchObject({
+      observation: null,
+      proposal: null,
+      action: "wait",
+    });
+    await pending;
+    expect(session.getSnapshot().proposal).toBeNull();
+    session.stop();
+  });
+  it("blocks duplicate requests and edits while the model request is pending", async () => {
+    const { session, transport } = setup();
+    await session.observe();
+    transport.mockClear();
+    const held = deferred<ActionProposal>();
+    transport.mockReturnValueOnce(held.promise);
+    const pending = session.propose();
+    await session.propose();
+    await session.observe();
+    await session.adjudicate("wait", "referee-a");
+    session.setAction("order_standard");
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot()).toMatchObject({
+      busy: true,
+      action: "wait",
+      proposal: null,
+    });
+    held.resolve(proposal);
+    await pending;
+    expect(session.getSnapshot().proposal).toEqual(proposal);
+    session.stop();
+  });
+  it.each([
+    { branchId: "branch-b" },
+    { tick: 2 },
+    { actorId: "retailer-b" },
+    { role: "supplier" as const },
+    { api: null },
+    {},
+  ])(
+    "discards late proposals and errors after leaving the context: %j",
+    async (change) => {
+      for (const fail of [false, true]) {
+        const { session, context, transport } = setup();
+        await session.observe();
+        const held = deferred<ActionProposal>();
+        transport.mockReturnValueOnce(held.promise);
+        const pending = session.propose();
+        session.stop();
+        const replacement = new DirectorSession({ ...context, ...change });
+        replacement.start();
+        if (fail) held.reject(new Error("stale model error"));
+        else held.resolve(proposal);
+        await pending;
+        for (const scope of [session, replacement]) {
+          expect(scope.getSnapshot()).toMatchObject({
+            proposal: null,
+            action: "wait",
+            error: "",
+            busy: false,
+          });
+        }
+        replacement.stop();
+      }
+    },
+  );
+  it("does not install an old proposal over a newer observation after session restart", async () => {
+    const { session, transport } = setup();
+    await session.observe();
+    const held = deferred<ActionProposal>();
+    transport.mockReturnValueOnce(held.promise);
+    const pending = session.propose();
+    session.stop();
+    session.start();
+    const newer = { ...observation, id: "observation-new" };
+    transport.mockResolvedValueOnce(newer).mockResolvedValueOnce(newer);
+    await session.observe();
+    held.resolve(proposal);
+    await pending;
+    expect(session.getSnapshot()).toMatchObject({
+      observation: newer,
+      proposal: null,
+      action: "wait",
+      busy: false,
+    });
+    session.stop();
+  });
+  it.each([
+    { actor_id: "other" },
+    { role: "supplier" },
+    { observation_hash: "other" },
+    { policy_id: "" },
+    { action: "unknown" },
+  ])(
+    "rejects mismatched or invalid model output without fallback: %j",
+    async (change) => {
+      const { session, transport } = setup();
+      await session.observe();
+      transport.mockResolvedValueOnce({ ...proposal, ...change });
+      await session.propose();
+      expect(session.getSnapshot()).toMatchObject({
+        proposal: null,
+        action: "wait",
+        result: null,
+        busy: false,
+      });
+      expect(session.getSnapshot().error).toContain("不一致或格式无效");
+      session.stop();
+    },
+  );
+  it("surfaces disabled-model errors and leaves manual adjudication independent", async () => {
+    const { session, transport } = setup();
+    await session.observe();
+    transport.mockRejectedValueOnce(new Error("local model actor is disabled"));
+    await session.propose();
+    expect(session.getSnapshot()).toMatchObject({
+      proposal: null,
+      busy: false,
+      error: "local model actor is disabled",
+    });
+    await session.adjudicate("wait", "referee-a");
+    expect(session.getSnapshot().result).toEqual(receipt);
+    session.stop();
+  });
+  it("does not call missing model capability or block the manual pipeline", async () => {
+    const { session, transport } = setup({
+      catalog: catalog.filter((c) => c.name !== "actor_propose"),
+    });
+    await session.observe();
+    await session.propose();
+    await session.adjudicate("wait", "referee-a");
+    expect(transport.mock.calls.map(([name]) => name)).not.toContain(
+      "actor_propose",
+    );
+    expect(session.getSnapshot().result).toEqual(receipt);
+    session.stop();
   });
 });
 

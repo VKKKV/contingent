@@ -1,13 +1,25 @@
-import { createElement } from "react";
+import { createElement, useSyncExternalStore } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { Api } from "./api";
-import type { Branch, Capability } from "./api";
+import type {
+  ActionProposal,
+  Branch,
+  Capability,
+  SavedObservation,
+} from "./api";
 import DirectorPanel from "./DirectorPanel";
+import { DirectorSession } from "./directorSession";
+
+vi.mock("react", async (importOriginal) => {
+  const react = await importOriginal<typeof import("react")>();
+  return { ...react, useSyncExternalStore: vi.fn(react.useSyncExternalStore) };
+});
 
 const catalog: Capability[] = [
   "observation_create",
   "observation_get",
+  "actor_propose",
   "adjudication_create",
   "adjudication_get",
   "adjudication_list",
@@ -66,6 +78,9 @@ describe("director panel controls", () => {
     expect(tag(html, "adjudication-reload")).not.toContain("disabled");
     expect(html).not.toContain('data-testid="adjudication-result"');
     expect(html).not.toContain('data-testid="observation-result"');
+    expect(html).not.toContain('data-testid="actor-propose"');
+    expect(html).not.toContain('data-testid="actor-proposal"');
+    expect(html).toContain("不自动裁决");
   });
   it.each([
     { api: null, branch, tick: 3, disabled: false },
@@ -106,6 +121,121 @@ describe("director panel controls", () => {
     expect(tag(html, "observation-create")).toContain("disabled");
     expect(tag(html, "adjudication-submit")).toContain("disabled");
     expect(tag(html, "adjudication-reload")).toContain("disabled");
+  });
+  it.each([false, true])(
+    "renders the model request only after a saved observation; missing capability: %s",
+    (missing) => {
+      const api = new Api("test-only");
+      const session = new DirectorSession({
+        api,
+        catalog,
+        branchId: branch.id,
+        tick: 3,
+        actorId: "supplier-a",
+        role: "supplier",
+      });
+      const observation: SavedObservation = {
+        id: "saved-observation",
+        observation: {
+          actor_id: "supplier-a",
+          role: "supplier",
+          tick: 3,
+          context: {
+            branch_id: branch.id,
+            scenario_revision: 2,
+            spec_hash: "spec",
+          },
+          projection: { tick: 3, supplier_stock: 10, shipments: [] },
+          projection_hash: "projection",
+          observation_hash: "observation",
+        },
+      };
+      vi.mocked(useSyncExternalStore).mockReturnValueOnce({
+        ...session.getSnapshot(),
+        observation,
+      });
+      const html = renderToStaticMarkup(
+        createElement(DirectorPanel, {
+          api,
+          branch,
+          tick: 3,
+          disabled: false,
+          catalog: missing
+            ? catalog.filter((c) => c.name !== "actor_propose")
+            : catalog,
+        }),
+      );
+      expect(tag(html, "actor-propose")).not.toBe("");
+      expect(tag(html, "actor-propose").includes("disabled")).toBe(missing);
+      expect(html.includes('data-testid="actor-capability-missing"')).toBe(
+        missing,
+      );
+      expect(html.indexOf('data-testid="actor-propose"')).toBeGreaterThan(
+        html.indexOf('data-testid="observation-envelope"'),
+      );
+      expect(html).not.toContain('data-testid="actor-proposal"');
+    },
+  );
+  it("renders actual model action and policy without an adjudication result", () => {
+    const api = new Api("test-only");
+    const session = new DirectorSession({
+      api,
+      catalog,
+      branchId: branch.id,
+      tick: 3,
+      actorId: "supplier-a",
+      role: "supplier",
+    });
+    const observation: SavedObservation = {
+      id: "saved-observation",
+      observation: {
+        actor_id: "supplier-a",
+        role: "supplier",
+        tick: 3,
+        context: {
+          branch_id: branch.id,
+          scenario_revision: 2,
+          spec_hash: "spec",
+        },
+        projection: { tick: 3, supplier_stock: 10, shipments: [] },
+        projection_hash: "projection",
+        observation_hash: "observation",
+      },
+    };
+    const proposal: ActionProposal = {
+      actor_id: "supplier-a",
+      role: "supplier",
+      action: "wait",
+      observation_hash: "observation",
+      policy_id: "local.supplier.v1",
+    };
+    vi.mocked(useSyncExternalStore).mockReturnValueOnce({
+      ...session.getSnapshot(),
+      observation,
+      proposal,
+      action: proposal.action,
+    });
+    const html = renderToStaticMarkup(
+      createElement(DirectorPanel, {
+        api,
+        branch,
+        tick: 3,
+        catalog,
+        disabled: false,
+      }),
+    );
+    for (const id of [
+      "actor-proposal",
+      "actor-proposal-action",
+      "actor-proposal-policy",
+      "adjudication-policy",
+    ])
+      expect(tag(html, id)).not.toBe("");
+    expect(html).toContain("local.supplier.v1");
+    expect(html).toContain("等待 · wait");
+    expect(html).toContain('<option value="wait" selected="">');
+    expect(html).not.toContain('data-testid="adjudication-result"');
+    expect(html).not.toContain("manual.director.v1");
   });
   it("never sends HTTP for an operation absent from the runtime catalog", async () => {
     const fetch = vi.fn();

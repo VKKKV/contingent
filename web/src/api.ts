@@ -203,6 +203,7 @@ export interface Operations {
     SavedObservation,
   ];
   observation_get: [{ id: string }, SavedObservation];
+  actor_propose: [{ observation_id: string }, ActionProposal];
   adjudication_create: [
     {
       observation_id: string;

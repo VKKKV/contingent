@@ -98,7 +98,6 @@ export default function DirectorPanel({
 }: DirectorPanelProps) {
   const [role, setRole] = useState<ParticipantRole>("retailer");
   const [actorId, setActorId] = useState("");
-  const [action, setAction] = useState<Action>("wait");
   const [referee, setReferee] = useState("");
   const branchId = branch?.id ?? null;
   // A new immutable session means old responses cannot install into the new
@@ -122,7 +121,6 @@ export default function DirectorPanel({
     session.getSnapshot,
   );
   useLayoutEffect(() => {
-    setAction("wait");
     setReferee("");
     session.start();
     return () => session.stop();
@@ -141,6 +139,7 @@ export default function DirectorPanel({
     "adjudication_list",
   );
   const canList = session.supports("adjudication_list");
+  const canPropose = session.supports("actor_propose");
   const refereeValid = !!referee.trim() && referee !== actorId;
   return (
     <section
@@ -155,8 +154,8 @@ export default function DirectorPanel({
       <p className="edit-note" data-testid="director-warning">
         仅供导演审计。角色投影不是多用户权限；演员与裁判 ID
         只是审计标签，不是已认证身份。
-        不要向不可信参与者提供导演令牌。接受或拒绝均为预览，不写入分支、不自动分叉；没有调用模型或
-        FakeActor。
+        不要向不可信参与者提供导演令牌。接受或拒绝均为预览，不写入分支、不自动分叉。
+        本地模型仅在点击提案按钮后调用，不自动裁决；仍需导演明确提交裁决。
       </p>
       <p className="muted break" data-testid="observation-selection">
         {branch
@@ -225,6 +224,35 @@ export default function DirectorPanel({
               {json(state.observation)}
             </pre>
           </details>
+          <button
+            type="button"
+            data-testid="actor-propose"
+            disabled={unavailable || !canPropose || state.busy}
+            onClick={() => {
+              if (!unavailable) void session.propose();
+            }}
+          >
+            请求本地模型提案
+          </button>
+          {!canPropose && (
+            <p className="edit-note" data-testid="actor-capability-missing">
+              服务未开放模型提案能力；仍可手动提交裁决。
+            </p>
+          )}
+          {state.proposal && (
+            <div aria-live="polite" data-testid="actor-proposal">
+              <p data-testid="actor-proposal-action">
+                模型选择：{actionLabel[state.proposal.action]} ·{" "}
+                {state.proposal.action}
+              </p>
+              <p className="break" data-testid="actor-proposal-policy">
+                策略：{state.proposal.policy_id}
+              </p>
+              <p className="muted">
+                提案不会自动裁决。修改动作后将改用手动策略。
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <p className="muted" data-testid="observation-empty">
@@ -235,24 +263,23 @@ export default function DirectorPanel({
         className="operation"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!unavailable) void session.adjudicate(action, referee);
+          if (!unavailable) void session.adjudicate(state.action, referee);
         }}
       >
-        <h3>提交单个手动提案</h3>
-        <p>
-          策略 manual.director.v1。供应商只允许
-          wait；其他动作仍可提交，由真实裁决拒绝，不替换动作。
+        <h3>提交单个提案裁决</h3>
+        <p className="break" data-testid="adjudication-policy">
+          当前策略：{state.proposal?.policy_id ?? "manual.director.v1"}
         </p>
+        <p>供应商只允许 wait；其他动作仍可提交，由真实裁决拒绝，不替换动作。</p>
         <div className="parameter-grid">
           <label className="field">
             <span>提案动作</span>
             <select
               data-testid="adjudication-action"
-              value={action}
+              value={state.action}
               disabled={unavailable || state.busy}
               onChange={(e) => {
-                setAction(e.target.value as Action);
-                session.clearResult();
+                session.setAction(e.target.value as Action);
               }}
             >
               {actions.map((item) => (
@@ -298,7 +325,7 @@ export default function DirectorPanel({
       </form>
       {state.busy && (
         <p role="status" data-testid="director-busy">
-          正在请求服务并读回持久化记录…
+          正在请求服务…
         </p>
       )}
       {state.error && (

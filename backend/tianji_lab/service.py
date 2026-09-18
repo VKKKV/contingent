@@ -12,6 +12,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import kernel
+from .local_actor import LocalActor, LocalActorError, PublicRules
 from .models import (
     RULE_VERSION_V1,
     Action,
@@ -103,6 +104,10 @@ class AdjudicationCreate(Input):
     adjudicator_id: Identifier
 
 
+class ActorPropose(Input):
+    observation_id: Identifier
+
+
 class SavedAdjudication(Input):
     id: Identifier
     observation_id: Identifier
@@ -173,6 +178,12 @@ OPERATIONS = {
         "Director: save a role-scoped observation of a frozen branch tick; not participant auth.",
     ),
     "observation_get": (ById, False, "Director: read one saved role-scoped observation."),
+    "actor_propose": (
+        ActorPropose,
+        False,
+        "Director: request an inert local-model proposal from a saved role observation; "
+        "does not adjudicate or retain model input/output.",
+    ),
     "adjudication_create": (
         AdjudicationCreate,
         True,
@@ -257,6 +268,7 @@ def compute(payload, connection):
 
 class Service:
     def __init__(self, data_dir, *, start_worker=True):
+        self.local_actor = LocalActor.from_env()
         self.store = Store(data_dir)
         self.stopping = threading.Event()
         self.wake = threading.Event()
@@ -311,6 +323,15 @@ class Service:
                 raise OperationError(
                     "request_id_required", "Mutation requires request_id (1..128 characters)"
                 )
+            if name == "actor_propose":
+                # Validate and detach a saved projection under the normal store
+                # boundary, then release SQLite before any model/network work.
+                with self.store.transaction() as db:
+                    observation, rules = self._actor_input(db, value.observation_id)
+                try:
+                    return self.local_actor.propose(observation, rules).model_dump(mode="json")
+                except LocalActorError as exc:
+                    raise OperationError(exc.code, exc.message, exc.status) from None
             with self.store.transaction() as db:
                 if mutating:
                     old = db.execute(
@@ -440,6 +461,16 @@ class Service:
             spec_hash=digest(branch.spec.model_dump(mode="json")),
         )
         return branch.spec, state, context
+
+    def _actor_input(self, db, observation_id):
+        row = self._row(db, "observation", observation_id)
+        observation = ObservationEnvelope.model_validate_json(row["observation_json"])
+        observation.verify_integrity()
+        spec, state, context = self._observation_source(db, row["branch_id"], observation.tick)
+        expected = observe_envelope(state, observation.actor_id, observation.role, context=context)
+        if observation != expected:
+            raise ValueError("Saved observation does not match its frozen branch")
+        return observation, PublicRules.from_scenario(spec)
 
     @staticmethod
     def _adjudication(row):

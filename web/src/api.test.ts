@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  Api,
   actionLabel,
   disturbanceLabel,
   frameAtTick,
@@ -9,10 +10,56 @@ import {
   schemaAt,
   schemaFields,
 } from "./api";
-import type { Branch, Capability, Frame, Job } from "./api";
+import type { ActionProposal, Branch, Capability, Frame, Job } from "./api";
 import App, { disturbanceErrors } from "./App";
 
 // Pure unit fixtures; no fake HTTP backend or synthetic product state.
+describe("actor proposal transport", () => {
+  it("posts only the saved observation ID and returns the actual proposal", async () => {
+    const proposal: ActionProposal = {
+      actor_id: "retailer-a",
+      role: "retailer",
+      action: "order_standard",
+      observation_hash: "observation-hash",
+      policy_id: "local.test.v1",
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              name: "actor_propose",
+              mutating: false,
+              input_schema: {},
+              description: "",
+            },
+          ]),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, data: proposal })),
+      );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      const api = new Api("test-only");
+      await api.catalog();
+      expect(
+        await api.op("actor_propose", { observation_id: "saved-id" }),
+      ).toEqual(proposal);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      const [url, request] = fetch.mock.calls[1];
+      expect(url).toBe("/api/operations/actor_propose");
+      expect(request.method).toBe("POST");
+      expect(JSON.parse(request.body)).toEqual({
+        arguments: { observation_id: "saved-id" },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describe("capability-driven forms", () => {
   const catalog: Capability[] = [
     {

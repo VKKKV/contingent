@@ -1,5 +1,6 @@
 import type {
   Action,
+  ActionProposal,
   Api,
   Capability,
   ParticipantRole,
@@ -17,6 +18,8 @@ export interface DirectorContext {
 }
 export interface DirectorSnapshot {
   observation: SavedObservation | null;
+  proposal: ActionProposal | null;
+  action: Action;
   result: SavedAdjudication | null;
   history: SavedAdjudication[];
   busy: boolean;
@@ -31,6 +34,8 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export class DirectorSession {
   private state: DirectorSnapshot = {
     observation: null,
+    proposal: null,
+    action: "wait",
     result: null,
     history: [],
     busy: false,
@@ -67,12 +72,25 @@ export class DirectorSession {
     this.active = false;
     this.generation += 1;
     this.historyGeneration += 1;
+    this.update({
+      observation: null,
+      proposal: null,
+      action: "wait",
+      result: null,
+      busy: false,
+      historyBusy: false,
+      error: "",
+    });
   }
   private current(generation: number) {
     return this.active && this.generation === generation;
   }
   clearResult() {
     if (!this.state.busy) this.update({ result: null, error: "" });
+  }
+  setAction(action: Action) {
+    if (this.state.busy || action === this.state.action) return;
+    this.update({ action, proposal: null, result: null, error: "" });
   }
   async reloadHistory() {
     const { api, branchId } = this.context;
@@ -110,7 +128,14 @@ export class DirectorSession {
     )
       return;
     const generation = this.generation;
-    this.update({ busy: true, observation: null, result: null, error: "" });
+    this.update({
+      busy: true,
+      observation: null,
+      proposal: null,
+      action: "wait",
+      result: null,
+      error: "",
+    });
     try {
       const created = await api.op("observation_create", {
         branch_id: branchId,
@@ -134,6 +159,44 @@ export class DirectorSession {
       if (this.current(generation)) this.update({ error: message(e) });
     } finally {
       if (this.current(generation)) this.update({ busy: false });
+    }
+  }
+  async propose() {
+    const { api } = this.context;
+    const observation = this.state.observation;
+    if (
+      !this.active ||
+      !api ||
+      !observation ||
+      this.state.busy ||
+      !this.supports("actor_propose")
+    )
+      return;
+    const generation = this.generation;
+    const current = () =>
+      this.current(generation) && this.state.observation === observation;
+    this.update({ busy: true, proposal: null, result: null, error: "" });
+    try {
+      const proposal = await api.op("actor_propose", {
+        observation_id: observation.id,
+      });
+      if (!current()) return;
+      if (
+        proposal.actor_id !== observation.observation.actor_id ||
+        proposal.role !== observation.observation.role ||
+        proposal.observation_hash !==
+          observation.observation.observation_hash ||
+        !["wait", "order_standard", "order_express"].includes(
+          proposal.action,
+        ) ||
+        !proposal.policy_id?.trim()
+      )
+        throw new Error("模型提案与当前观察不一致或格式无效，请重试。");
+      this.update({ proposal, action: proposal.action });
+    } catch (e) {
+      if (current()) this.update({ error: message(e) });
+    } finally {
+      if (current()) this.update({ busy: false });
     }
   }
   async adjudicate(action: Action, adjudicatorId: string) {
@@ -163,7 +226,10 @@ export class DirectorSession {
           role: observation.observation.role,
           action,
           observation_hash: observation.observation.observation_hash,
-          policy_id: "manual.director.v1",
+          policy_id:
+            this.state.proposal?.action === action
+              ? this.state.proposal.policy_id
+              : "manual.director.v1",
         },
         adjudicator_id: adjudicatorId,
       });
