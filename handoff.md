@@ -1,6 +1,26 @@
 # TianJi handoff
 
-## Current session — M2 slice 2 (2026-09-18, verified; provider gate reached)
+## Current session — merged main and local model smoke (2026-09-18)
+
+The maintainer explicitly authorized commit + merge to main and a local fast-model smoke test,
+superseding the earlier no-commit gate. Signed slice commit `ec985aa` is fast-forward merged into
+local `main` (including its preceding feature history); no push was requested or performed.
+The original feature branch remains as a reference. No baseline/sensitivity harness.
+
+Reused cached Qwen3.5-9B Q4_K_M with llama.cpp CUDA on RTX 4070 Ti SUPER. Three real role-projected
+calls produced `order_express`, `wait`, `wait`, all independently accepted by the kernel; warm HTTP
+latencies 0.2948 / 0.1970 / 0.1996 seconds. No downloads or paid calls. Temporary server was stopped.
+Reproduction and raw evidence:
+`docs/milestones/2026-09-m2-private-observation-adjudication/research/local-model-smoke.md` and
+`local-model-smoke.json`. Script: `scripts/check-local-model.py` (opt-in, loopback only).
+Backend now passes 207 tests including 10 offline smoke-runner checks. The product's prior 44
+frontend tests and 23 real Chromium checks remain its latest browser evidence.
+
+Local inference feasibility is proven, not production provider integration or the whole M2 milestone.
+Next implementation requires a bounded actor job/lifecycle contract; paid/remote providers,
+participant auth, simultaneous turns, deployment and legacy migration remain separate gates.
+
+## Previous verification — M2 slice 2 (before commit authorization)
 
 Branch `feat/world-simulation-lab`, starting HEAD `27cb737`. Preserve this session's uncommitted
 work for maintainer review: the user's more recent **no commit, no push** instruction overrides the

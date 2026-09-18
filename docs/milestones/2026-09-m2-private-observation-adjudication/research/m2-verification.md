@@ -1,8 +1,10 @@
 # M2 slice 2 verification — 2026-09-18
 
-Status: implemented and verified offline; working tree intentionally uncommitted for maintainer
-review. Starting HEAD `27cb737`, branch `feat/world-simulation-lab`. No commit/push, provider calls,
-baseline/sensitivity harness, legacy migration or remote deployment was performed.
+Status at verification: implemented and verified offline; initially held uncommitted for review.
+Starting HEAD `27cb737`, branch `feat/world-simulation-lab`. Subsequently the maintainer authorized
+signed commit `ec985aa` and a fast-forward merge into local main. No push. The later authorized
+[local model smoke](local-model-smoke.md) is separate evidence, not part of these offline results.
+No baseline/sensitivity harness, legacy migration or remote deployment was performed.
 
 ## Delivered behavior
 

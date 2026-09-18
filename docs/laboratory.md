@@ -2,6 +2,13 @@
 
 This guide describes the additive TypeScript/Python slice. The creative direction remains **bidirectional world simulation laboratory / computational Laplace's demon**. M1 validates its interaction and computational spine in a deliberately small fictional civilian supply chain. It is not the final world model.
 
+## Opt-in local model smoke
+
+The product still has no autonomous LLM loop. An explicitly invoked developer script can test an
+already-running loopback llama.cpp server with three role-projected proposals and independent
+kernel adjudication. See [setup, measured results and limits](milestones/2026-09-m2-private-observation-adjudication/research/local-model-smoke.md).
+It does not install a model, call remote providers, or run as part of the default tests.
+
 ## Start
 
 Run from the repository root:

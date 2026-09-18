@@ -29,7 +29,9 @@ Hand-maintained documentation for this repository. No tool generates or owns the
 M2 slice 2 — [contract](milestones/2026-09-m2-private-observation-adjudication/m2-contract.md),
 [verification](milestones/2026-09-m2-private-observation-adjudication/research/m2-verification.md) —
 was verified on 2026-09-18. It covers saved private observations and independent kernel-checked
-previews, not authenticated multiplayer or consensus. Its changes remain uncommitted for review.
+previews, not authenticated multiplayer or consensus. Signed commit `ec985aa` was merged to local
+main after maintainer approval. A subsequent opt-in [local model smoke](milestones/2026-09-m2-private-observation-adjudication/research/local-model-smoke.md)
+verified three real llama.cpp calls; this is not product provider integration.
 
 Each verified slice keeps its real browser acceptance report under `research/`. Confirmation gates
 for model providers, participant authorization/model expansion, legacy data migration, remote

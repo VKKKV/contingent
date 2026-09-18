@@ -1,6 +1,8 @@
 # M2 slice 2 — offline observation and independent adjudication
 
-Status: implemented and verified offline on 2026-09-18; uncommitted for maintainer review.
+Status: implemented and verified offline on 2026-09-18; signed commit `ec985aa` merged into local
+main after maintainer authorization. Separate [local smoke evidence](research/local-model-smoke.md)
+does not change the production scope below.
 This contract replaces the unfinished draft's consensus/conflict
 proposal. The existing kernel has one action per turn, not simultaneous multiplayer transitions.
 No provider, paid call, network actor, participant credential, or calibrated probability is added.
