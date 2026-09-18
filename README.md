@@ -11,6 +11,7 @@ The new local-first workbench lives in `web/` (React/TypeScript/Vite) and `backe
 - Search from terminal goals and constraints; distinguish feasible plans, finite-model no solution, and incomplete search. Replay all returned plans with the forward model.
 - Fork recorded ticks, compare frozen assumptions, inspect events/state hashes, export and semantically validate standalone JSON bundles.
 - Operate the same scenarios, jobs, branches and desired workspace state through HTTP and MCP. The browser polls branch/tick/panel changes; a successful API call is not a browser rendering acknowledgement.
+- Inspect saved retailer/supplier observations and independent kernel-checked action previews through Web, HTTP and MCP. Adjudication records are durable director audit data, not participant authentication, votes or executed branch changes.
 - Single local director, token authentication, revision guards, durable bounded jobs and cancellation. No built-in LLM/chat, live feeds, multiplayer authorization or real-world actuation in this slice.
 
 ### Run the laboratory

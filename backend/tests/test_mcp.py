@@ -102,6 +102,98 @@ def test_real_mcp_stdio_and_cli(tmp_path):
                         + (scheduled_branch["trajectory"]["final_state"]["shortage"])
                         == 3 * 4
                     )
+                    # The same capability schemas and director operations are exposed
+                    # over MCP, not a second implementation or participant auth layer.
+                    with httpx.Client(
+                        base_url=url,
+                        headers={"Authorization": "Bearer integration-test-only"},
+                        trust_env=False,
+                    ) as http:
+                        catalog = http.get("/api/capabilities").json()
+                    assert {t.name: t.inputSchema for t in tools.tools} == {
+                        item["name"]: item["input_schema"] for item in catalog
+                    }
+
+                    async def invoke(name, args):
+                        response = await session.call_tool(name, args)
+                        assert not response.isError, response
+                        return json.loads(response.content[0].text)["data"]
+
+                    observed = await invoke(
+                        "observation_create",
+                        {
+                            "branch_id": scheduled_branch["id"],
+                            "tick": 0,
+                            "actor_id": "supplier-1",
+                            "role": "supplier",
+                        },
+                    )
+                    assert set(observed["observation"]["projection"]) == {
+                        "tick",
+                        "supplier_stock",
+                        "shipments",
+                    }
+                    assert await invoke("observation_get", {"id": observed["id"]}) == observed
+                    checked = await invoke(
+                        "adjudication_create",
+                        {
+                            "observation_id": observed["id"],
+                            "adjudicator_id": "referee-1",
+                            "proposal": {
+                                "actor_id": "supplier-1",
+                                "role": "supplier",
+                                "action": "order_express",
+                                "policy_id": "manual.director.v1",
+                                "observation_hash": observed["observation"]["observation_hash"],
+                            },
+                        },
+                    )
+                    assert checked["record"]["status"] == "rejected"
+                    assert (
+                        checked["next_state"]
+                        == scheduled_branch["trajectory"]["frames"][0]["state"]
+                    )
+                    assert await invoke("adjudication_get", {"id": checked["id"]}) == checked
+                    assert (
+                        await invoke("adjudication_list", {"branch_id": scheduled_branch["id"]})
+                    )["items"] == [checked]
+                    retailer = await invoke(
+                        "observation_create",
+                        {
+                            "branch_id": scheduled_branch["id"],
+                            "tick": 0,
+                            "actor_id": "retailer-1",
+                            "role": "retailer",
+                        },
+                    )
+                    assert set(retailer["observation"]["projection"]) == {
+                        "tick",
+                        "inventory",
+                        "cash",
+                        "delivered",
+                        "shortage",
+                        "spent",
+                        "shipments",
+                    }
+                    accepted = await invoke(
+                        "adjudication_create",
+                        {
+                            "observation_id": retailer["id"],
+                            "adjudicator_id": "referee-1",
+                            "proposal": {
+                                "actor_id": "retailer-1",
+                                "role": "retailer",
+                                "action": "order_express",
+                                "policy_id": "manual.director.v1",
+                                "observation_hash": retailer["observation"]["observation_hash"],
+                            },
+                        },
+                    )
+                    assert accepted["record"]["status"] == "accepted"
+                    assert (
+                        await invoke("branch_get", {"id": scheduled_branch["id"]})
+                        == scheduled_branch
+                    )
                     attached = await session.call_tool("workspace_attach", {})
                     workspace = json.loads(attached.content[0].text)["data"]
                     changed = await session.call_tool(

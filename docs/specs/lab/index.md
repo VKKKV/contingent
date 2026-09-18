@@ -9,7 +9,10 @@ Read the [M1 slice record](../../milestones/2026-09-m1-world-simulation-lab/prd.
 [architecture.md](../../milestones/2026-09-m1-world-simulation-lab/architecture.md) for long-term
 intent. Read [execution-contract.md](execution-contract.md) for current schemas, lifecycle, errors and
 executable regression gates. The M1 contract governs exact models, operation names and bounded
-acceptance; do not silently expand APIs or substitute demo responses. Read
+acceptance for its baseline; subsequent behavior is governed by the
+[M2 disturbance contract](../../milestones/2026-09-m2-exogenous-disturbances/m2-contract.md) and
+[M2 observation/adjudication contract](../../milestones/2026-09-m2-private-observation-adjudication/m2-contract.md).
+Do not silently expand APIs or substitute demo responses. Read
 [../guides/cross-layer-thinking-guide.md](../guides/cross-layer-thinking-guide.md). Milestone records
 live under `docs/milestones/`; docs own only the paths assigned to them.
 

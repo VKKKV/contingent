@@ -34,6 +34,7 @@ import type {
   Scenario,
 } from "./api";
 import { useLab } from "./useLab";
+import DirectorPanel from "./DirectorPanel";
 import "./styles.css";
 
 const labels: Record<string, string> = {
@@ -1319,6 +1320,13 @@ export default function App() {
               </div>
             )}
           </section>
+          <DirectorPanel
+            api={lab.api}
+            catalog={lab.catalog}
+            branch={branch}
+            tick={tick}
+            disabled={disabled}
+          />
           <section className="panel jobs-panel">
             <div className="section-heading">
               <h2>计算任务</h2>

@@ -1,6 +1,46 @@
 # TianJi handoff
 
-## Session state (2026-09-12, session closed)
+## Current session — M2 slice 2 (2026-09-18, verified; provider gate reached)
+
+Branch `feat/world-simulation-lab`, starting HEAD `27cb737`. Preserve this session's uncommitted
+work for maintainer review: the user's more recent **no commit, no push** instruction overrides the
+older general commit agreement. Do not build a baseline/sensitivity harness (explicitly declined).
+Do not restore the abandoned consensus/group-majority draft: the bounded kernel accepts one
+proposal per independent preview, not a simultaneous multi-actor turn.
+
+Implemented and verified across the kernel, service, HTTP/MCP and browser:
+
+- Deeply immutable, typed and bounded retailer/supplier observations bound to frozen branch,
+  revision, specification hash and tick. The retailer projection now explicitly excludes supplier
+  stock and loss accounting. Content hashes are not authentication; no full-state digest is given
+  to participants. `FakeActor` is a test double only.
+- Independent deterministic adjudication with exact requested actions, rejection without mutation,
+  and hashed audit records. Supplier can only `wait`; no supplier-side purchase action exists.
+- Durable `observation_create/get` and `adjudication_create/get/list` operations shared by HTTP/MCP;
+  idempotent writes and 100 observations / 100 adjudications per source branch. Accepted results
+  preview a next state but never advance or mutate the recorded branch. Histories are sidecars,
+  deliberately outside version-1 branch exports.
+- Director-only Web panel with saved readback/history, accepted/rejected previews and stale-response
+  protection. Real Chromium covers delayed `branch_get` and `observation_get` responses, reload,
+  1440/768/390px layout and unchanged source branches. No participant authentication, autonomous
+  agents or provider integration is claimed.
+- Readback validates adjudication record/state hashes and relational identity; corrupt sidecar
+  records fail validation rather than appearing as valid audit results.
+
+Contract: `docs/milestones/2026-09-m2-private-observation-adjudication/m2-contract.md`.
+Final main-agent verification: **197 backend tests**, **44 frontend tests**, **23 real Chromium
+checks**, **21 shared HTTP/MCP operations**. Ruff (including browser script), formatting, TypeScript
+production build and `git diff --check` pass. Two upstream Python deprecation warnings remain.
+Full evidence: `docs/milestones/2026-09-m2-private-observation-adjudication/research/m2-verification.md`;
+raw browser report is beside it. Regenerable screenshots: `/tmp/tianji-browser-qbiesjz1/`.
+Visual model inspection was unavailable (503); DOM layout/bounds and browser behavior were verified.
+No commit/push, provider call, baseline/sensitivity harness or legacy modification was performed.
+
+After this slice, the approved M2 milestone's real provider smoke test remains gated on explicit
+provider/model/budget approval. Participant-scoped credentials, simultaneous turn resolution,
+remote deployment, legacy migration and real-world actions are not authorized by this slice.
+
+## Historical session state (2026-09-12, session closed)
 
 Resume point. Working tree is clean, branch `feat/world-simulation-lab`, nothing pushed; `origin` is
 configured as `git@github.com:VKKKV/tianji.git` and `main` tracks it at `a5a3c65`, which is this

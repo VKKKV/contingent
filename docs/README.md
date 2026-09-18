@@ -26,7 +26,12 @@ Hand-maintained documentation for this repository. No tool generates or owns the
 | M1 — bidirectional laboratory: forward runs, goal search, fork, compare, replay | 2026-09-10 | [prd](milestones/2026-09-m1-world-simulation-lab/prd.md), [contract](milestones/2026-09-m1-world-simulation-lab/m1-contract.md), [architecture](milestones/2026-09-m1-world-simulation-lab/architecture.md), [verification](milestones/2026-09-m1-world-simulation-lab/research/m1-verification.md) |
 | M2 slice 1 — exogenous disturbances with recorded replay | 2026-09-12 | [prd](milestones/2026-09-m2-exogenous-disturbances/prd.md), [contract](milestones/2026-09-m2-exogenous-disturbances/m2-contract.md), [verification](milestones/2026-09-m2-exogenous-disturbances/research/m2-verification.md) |
 
-Each slice directory keeps its real browser acceptance report under `research/`. The next slice
-(multi-actor private observation with independent adjudication) has not started; the confirmation
-gates for model providers, legacy data migration, remote deployment and real-world action integration
-are recorded in [laboratory.md](laboratory.md) and `handoff.md`.
+M2 slice 2 — [contract](milestones/2026-09-m2-private-observation-adjudication/m2-contract.md),
+[verification](milestones/2026-09-m2-private-observation-adjudication/research/m2-verification.md) —
+was verified on 2026-09-18. It covers saved private observations and independent kernel-checked
+previews, not authenticated multiplayer or consensus. Its changes remain uncommitted for review.
+
+Each verified slice keeps its real browser acceptance report under `research/`. Confirmation gates
+for model providers, participant authorization/model expansion, legacy data migration, remote
+deployment and real-world action integration remain recorded in [laboratory.md](laboratory.md) and
+`handoff.md`.

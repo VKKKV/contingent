@@ -1,4 +1,4 @@
-# TianJi laboratory — M1 operator and developer guide
+# TianJi laboratory — operator and developer guide
 
 This guide describes the additive TypeScript/Python slice. The creative direction remains **bidirectional world simulation laboratory / computational Laplace's demon**. M1 validates its interaction and computational spine in a deliberately small fictional civilian supply chain. It is not the final world model.
 
@@ -59,6 +59,30 @@ Goal-directed search is currently bounded depth-first enumeration of legal actio
 
 A fork stores its continuation plus the full inherited action prefix. Import reconstructs its starting state from scenario initial state and prefix, not from an untrusted claimed snapshot. Parent identifiers in imported bundles are provenance only; imports receive fresh IDs and no dangling foreign key.
 
+## Private observations and adjudication previews
+
+The director workbench can save a typed retailer/supplier projection for a recorded branch tick,
+submit a manually chosen structured action, and save an independent kernel-checked preview. The
+retailer sees tick, inventory, cash, delivered, shortage, spent and shipments; the supplier sees
+tick, supplier stock and shipments. Other private fields are absent, not merely hidden by CSS.
+Observation identity binds actor, role, recorded tick, branch, frozen revision and spec hash.
+
+The referee label must differ from the actor label. Retailers may wait or order; suppliers may only
+wait because this model has no supplier-side purchase command. Illegal actions return a rejected
+record without substitution. Accepted previews show the exact next state from `kernel.step`, not
+a committed branch: use the existing fork controls separately to explore the action. Separate
+actors produce separate records, not consensus or an invented simultaneous-action model.
+
+All callers remain full local directors. Labels do not authenticate participants or referees; no
+paid provider, LLM, fake chat or autonomous actor runs. `FakeActor` is test-only. Observations omit
+full-state hashes; adjudication records and next-state previews contain privileged director data.
+Never provide the director credential to an untrusted participant.
+
+Records survive service restart. Each branch permits up to 100 observations and 100 adjudications.
+The source is its immutable frozen specification, so later live scenario edits do not change old
+records. Bundle v1 exports trajectories, not these separate audit records; imported branches get
+a new identity and cannot reuse an old observation. The [slice contract](milestones/2026-09-m2-private-observation-adjudication/m2-contract.md) defines the exact boundary.
+
 ## Shared operation API
 
 `GET /health` is public. All `/api` requests require `Authorization: Bearer <token>`. `GET /api/capabilities` returns the live operation registry and its Pydantic-generated input schemas. Mutations require a nonempty `request_id`. HTTP writes reject cross-site Origin/Sec-Fetch-Site and bodies over 1 MiB. There is no wildcard CORS, arbitrary path, shell, SQL or executable scenario input.
@@ -70,6 +94,8 @@ Operation families:
 - `scenario_list/create/update`: versioned scenario specifications.
 - `run_forward`, `run_backward`, `branch_fork`, `job_get/cancel`: bounded asynchronous jobs.
 - `branch_list/get/compare/export/import`: immutable results and portable replay.
+- `observation_create/get`: saved role projections of recorded branch ticks.
+- `adjudication_create/get/list`: bounded synchronous kernel-checked previews and branch-scoped history. Creates use the same transactional request-ID semantics; no jobs or branch writes are created.
 - `workspace_attach/get/update`: desired scenario, selected branch, comparison target, recorded tick and panel, using revision CAS. Explicit null equals omitted for scenario/tick/panel; branch/comparison null clears that selection.
 
 The single worker supervisor starts a separate computation process, leaving the HTTP event loop available. The queue is capped at 32 outstanding jobs and search at 50,000 expanded nodes. Cancelling a queued/running job prevents any result-branch commit; the supervisor stops its subprocess. Completed results cannot be retroactively cancelled. A restart marks previous running work `interrupted` and resumes queued work. No pause/resume checkpoints or SSE are claimed.
@@ -90,7 +116,7 @@ Use an actual absolute project path in your client. Do not paste a real token in
 
 To control the visible tab, read its displayed workspace ID, use `workspace_get`, then `workspace_update` with the returned revision and desired branch/tick/panel. Browser polling applies these changes. The command response confirms **server desired state**, not browser acknowledgement; no connected tab is required for it to succeed. This distinction is visible in tool descriptions. Authentication inputs, file pickers and download dialogs are local transport UI, not domain operations.
 
-All API and MCP callers are privileged directors in M1. Kernel `observe` has tested retailer/supplier projections for future participants, but this is not a deployed multi-user information barrier. Do not hand the director token to an untrusted simulated player.
+All API and MCP callers are privileged directors. Saved retailer/supplier projections minimize the returned observation fields, but are not a deployed multi-user information barrier. Do not hand the director token to an untrusted simulated player.
 
 ## Quality gates
 
@@ -119,6 +145,6 @@ The script creates only local fictional test experiments in a temporary director
 
 M1 established the full forward/goal-search/branch/replay interaction. The current slice adds the explicit exogenous disturbance schedule (demand spikes and supplier losses) with recorded replay, conserved losses and a rule label derived from the frozen specification, so a conditional future now depends on both the actor's decisions and declared outside events. Neither slice is a final product.
 
-Next model work: competing actors with private observation and independent adjudication, baseline and sensitivity experiments across schedules, and eventually a model-backed director proposal loop. Seeded randomness would only be added together with a recorded draw log that the import verifier consumes. Retain the bidirectional core rather than regressing into a feed dashboard.
+The offline observation/adjudication slice adds durable, role-scoped proposals and independent one-step previews without changing the forward model. Authenticated participants, supplier-specific actions and simultaneous multi-actor resolution are not implemented. A model-backed director proposal loop requires provider/cost approval. Baseline/sensitivity harness work is explicitly deferred by the maintainer. Seeded randomness would only be added together with a recorded draw log that the import verifier consumes. Retain the bidirectional core rather than regressing into a feed dashboard.
 
 A model-backed conversational co-pilot can propose structured operations and explain traces, but must not silently change rules, own both player and referee, or claim calibrated probabilities. Provider/cost choices, legacy cleanup or data migration, remote deployment and real-world action integrations remain explicit user confirmation gates.

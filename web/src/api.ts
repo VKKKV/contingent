@@ -37,6 +37,59 @@ export interface State {
   lost: number;
   shipments: { due_tick: number; quantity: number }[];
 }
+export type ParticipantRole = "retailer" | "supplier";
+export interface ObservationContext {
+  branch_id: string;
+  scenario_revision: number;
+  spec_hash: string;
+}
+export type RetailerProjection = Omit<State, "supplier_stock" | "lost">;
+export type SupplierProjection = Pick<
+  State,
+  "tick" | "supplier_stock" | "shipments"
+>;
+export type ObservationEnvelope = {
+  actor_id: string;
+  tick: number;
+  context: ObservationContext;
+  projection_hash: string;
+  observation_hash: string;
+} & (
+  | { role: "retailer"; projection: RetailerProjection }
+  | { role: "supplier"; projection: SupplierProjection }
+);
+export interface SavedObservation {
+  id: string;
+  observation: ObservationEnvelope;
+}
+export interface ActionProposal {
+  actor_id: string;
+  role: ParticipantRole;
+  action: Action;
+  observation_hash: string;
+  policy_id: string;
+}
+export interface AdjudicationRecord {
+  record_id: string;
+  adjudicator_id: string;
+  proposal_actor_id: string;
+  role: ParticipantRole;
+  policy_id: string;
+  pre_state_hash: string;
+  observation_hash: string;
+  action: Action;
+  status: "accepted" | "rejected";
+  reason: string;
+  post_state_hash: string;
+  record_hash: string;
+  context: ObservationContext;
+}
+export interface SavedAdjudication {
+  id: string;
+  observation_id: string;
+  record: AdjudicationRecord;
+  next_state: State;
+}
 export interface Frame {
   state: State;
   action: string;
@@ -140,6 +193,26 @@ export interface Capability {
   mutating: boolean;
 }
 export interface Operations {
+  observation_create: [
+    {
+      branch_id: string;
+      tick: number;
+      actor_id: string;
+      role: ParticipantRole;
+    },
+    SavedObservation,
+  ];
+  observation_get: [{ id: string }, SavedObservation];
+  adjudication_create: [
+    {
+      observation_id: string;
+      proposal: ActionProposal;
+      adjudicator_id: string;
+    },
+    SavedAdjudication,
+  ];
+  adjudication_get: [{ id: string }, SavedAdjudication];
+  adjudication_list: [{ branch_id: string }, { items: SavedAdjudication[] }];
   scenario_list: [{}, { items: ScenarioRecord[] }];
   scenario_create: [{ spec: Scenario }, ScenarioRecord];
   scenario_update: [

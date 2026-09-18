@@ -853,6 +853,29 @@ details code {
   margin-top: 7px;
   overflow-wrap: anywhere;
 }
+.director-json {
+  max-height: 340px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: #c3cdd6;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.director-panel > .section-heading,
+.director-panel .row-between {
+  flex-wrap: wrap;
+}
+.director-panel > .muted {
+  margin-top: 10px;
+}
+.director-panel .job {
+  margin-top: 12px;
+}
 .comparison,
 .goal-summary {
   margin-top: 20px;

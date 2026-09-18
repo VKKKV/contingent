@@ -49,6 +49,15 @@ class Store:
                 CREATE TABLE IF NOT EXISTS workspace (
                     id TEXT PRIMARY KEY, revision INTEGER NOT NULL,
                     state_json TEXT NOT NULL, last_seen TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS observation (
+                    id TEXT PRIMARY KEY, branch_id TEXT NOT NULL REFERENCES branch(id),
+                    observation_json TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS observation_branch ON observation(branch_id);
+                CREATE TABLE IF NOT EXISTS adjudication (
+                    id TEXT PRIMARY KEY, branch_id TEXT NOT NULL REFERENCES branch(id),
+                    observation_id TEXT NOT NULL REFERENCES observation(id),
+                    result_json TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS adjudication_branch ON adjudication(branch_id);
                 CREATE TABLE IF NOT EXISTS idempotency (
                     operation TEXT NOT NULL, request_id TEXT NOT NULL,
                     arguments_json TEXT NOT NULL, result_json TEXT NOT NULL,

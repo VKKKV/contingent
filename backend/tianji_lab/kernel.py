@@ -379,7 +379,11 @@ def observe(state: State, role: Role) -> dict:
     if role == "director":
         return state.model_dump(mode="json")
     if role == "retailer":
-        return state.model_dump(mode="json", exclude={"supplier_stock"})
+        # Allowlist prevents supplier losses and future private fields leaking.
+        return state.model_dump(
+            mode="json",
+            include={"tick", "inventory", "cash", "delivered", "shortage", "spent", "shipments"},
+        )
     if role == "supplier":
         # Allowlist excludes retail inventory, demand fulfillment, cash and spend.
         return state.model_dump(mode="json", include={"tick", "supplier_stock", "shipments"})

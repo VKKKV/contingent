@@ -2,7 +2,7 @@
 
 ## 1. Scope / trigger
 
-Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario, branch, job, workspace or import schema changes. The model is a fictional `supply-chain` kernel whose rule label is derived from the frozen specification: an empty exogenous-disturbance schedule is `supply-chain.v1`, a non-empty one is `supply-chain.v2`. All external clients are local directors. Participant projections in `kernel.observe` are not deployed per-user authorization.
+Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario, branch, job, workspace or import schema changes. The model is a fictional `supply-chain` kernel whose rule label is derived from the frozen specification: an empty exogenous-disturbance schedule is `supply-chain.v1`, a non-empty one is `supply-chain.v2`. All external clients are local directors. Participant projections and saved observations are not deployed per-user authorization. The offline adjudication service retains director-only, independently kernel-checked previews; it never mutates a recorded branch. See the [M2 slice 2 contract](../../milestones/2026-09-m2-private-observation-adjudication/m2-contract.md).
 
 ## 2. Signatures
 
@@ -35,6 +35,7 @@ Replay bundles prove internal consistency, not origin authenticity. Reconstruct 
 - Queue full, incompatible comparison, revision increment past limit: 409 with explicit code.
 - Extra keys, bool for integer, invalid recorded tick, malformed/dishonest bundle, body >1MiB: 422.
 - Revisions are bounded to 1..2147483647; do not accept arbitrary Python integers into SQLite INTEGER and let them become HTTP500.
+- Saved observations and adjudications are capped separately at 100 per branch; further creates return 409 `record_limit` atomically. Their scope is a frozen recorded branch, not the live scenario revision.
 - A second owner of the same data directory fails before startup recovery can alter jobs.
 - Kernel legal-action failures produce failed jobs, never synthetic trajectories or silent action substitution.
 
@@ -52,6 +53,7 @@ Bad: forge a fork start while recomputing outer digest; import must reject again
 - `tests/test_service.py`, `test_import_metadata.py`: frozen versions, idempotency, continuation prefix and goal replay, repeated import, revision bounds and no partial write, schedule frozen across later revisions, pre-slice bundles importing under v1, and mislabelled schedules rejected.
 - `tests/test_lifecycle.py`: second owner cannot interrupt live jobs; cancellation leaves no result branch and next queued work completes.
 - `tests/test_workspace.py`: scenario/branch/compare selection, empty scenarios, contradictory IDs, selected comparison invariants.
+- `tests/test_m2_private_observation.py`, `test_adjudication_service.py`: strict immutable projections and hashes, actor/role/context binding, independent referee label, role action permissions, real forward equality, persistence/restart, transactional idempotency/caps/rollback, frozen revisions, imported/fork identity, HTTP allowlists and unchanged branch/jobs/workspace.
 - `tests/test_api.py`, `test_mcp.py`: auth/origin/body bounds, actual CLI HTTP service and official MCP SDK initialization/list/call, published capability schema matching the live model.
 - `scripts/check-lab-browser.py`: actual Chromium create/edit/run/goal/fork/compare/import/export/cancel, schedule editing with client-side rejection, timeline markers and `lost`, external MCP visible selections, reload without old-job auto-selection, stale human edit preservation, layout and uncaught JS checks.
 

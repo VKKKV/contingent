@@ -21,6 +21,15 @@ from .models import (
     State,
     Trajectory,
 )
+from .offline_adjudication import (
+    ActionProposal,
+    AdjudicationRecord,
+    ObservationContext,
+    ObservationEnvelope,
+    ParticipantRole,
+    adjudicate,
+    observe_envelope,
+)
 from .store import Store, canonical
 
 Identifier = Annotated[str, Field(min_length=1, max_length=100)]
@@ -76,6 +85,29 @@ class Fork(ById):
     tick: Tick
     actions: Actions
     name: Name = "Fork continuation"
+
+
+class ByBranch(Input):
+    branch_id: Identifier
+
+
+class ObservationCreate(ByBranch):
+    tick: Tick
+    actor_id: Identifier
+    role: ParticipantRole
+
+
+class AdjudicationCreate(Input):
+    observation_id: Identifier
+    proposal: ActionProposal
+    adjudicator_id: Identifier
+
+
+class SavedAdjudication(Input):
+    id: Identifier
+    observation_id: Identifier
+    record: AdjudicationRecord
+    next_state: State
 
 
 class Compare(Input):
@@ -135,6 +167,23 @@ OPERATIONS = {
     ),
     "branch_list": (ByScenario, False, "List recorded branches for a scenario."),
     "branch_get": (ById, False, "Read a branch and its frozen assumptions."),
+    "observation_create": (
+        ObservationCreate,
+        True,
+        "Director: save a role-scoped observation of a frozen branch tick; not participant auth.",
+    ),
+    "observation_get": (ById, False, "Director: read one saved role-scoped observation."),
+    "adjudication_create": (
+        AdjudicationCreate,
+        True,
+        "Director: save an independent kernel-checked proposal preview; never changes a branch.",
+    ),
+    "adjudication_get": (ById, False, "Director: read an adjudication and next-state preview."),
+    "adjudication_list": (
+        ByBranch,
+        False,
+        "Director: list bounded adjudication history for a branch.",
+    ),
     "run_forward": (Forward, True, "Queue a bounded rules-v1 forward simulation."),
     "run_backward": (
         Backward,
@@ -371,7 +420,104 @@ class Service:
         if replay.model_dump() != trajectory.model_dump():
             raise ValueError("Trajectory metadata, goal or replay mismatch")
 
+    def _observation(self, db, id):
+        row = self._row(db, "observation", id)
+        # JSON validation accepts JSON shipment arrays while preserving the core's
+        # immutable tuple representation. Never trust persisted hashes implicitly.
+        observation = ObservationEnvelope.model_validate_json(row["observation_json"])
+        observation.verify_integrity()
+        return {"id": id, "observation": observation.model_dump(mode="json")}
+
+    def _observation_source(self, db, branch_id, tick):
+        branch = Branch.model_validate(self._branch(db, branch_id))
+        self._verify_branch(branch)
+        state = next((f.state for f in branch.trajectory.frames if f.state.tick == tick), None)
+        if state is None:
+            raise ValueError("Tick is not a recorded frame")
+        context = ObservationContext(
+            branch_id=branch.id,
+            scenario_revision=branch.scenario_revision,
+            spec_hash=digest(branch.spec.model_dump(mode="json")),
+        )
+        return branch.spec, state, context
+
+    @staticmethod
+    def _adjudication(row):
+        result = SavedAdjudication.model_validate_json(row["result_json"])
+        if (
+            result.id != row["id"]
+            or result.record.record_id != row["id"]
+            or result.observation_id != row["observation_id"]
+            or result.record.context.branch_id != row["branch_id"]
+        ):
+            raise ValueError("Adjudication relational identity mismatch")
+        if kernel.state_hash(result.next_state) != result.record.post_state_hash:
+            raise ValueError("Adjudication next-state hash mismatch")
+        return result.model_dump(mode="json")
+
+    @staticmethod
+    def _record_capacity(db, table, branch_id):
+        # Only fixed internal table names reach this helper.
+        if (
+            db.execute(f"SELECT count(*) FROM {table} WHERE branch_id=?", (branch_id,)).fetchone()[
+                0
+            ]
+            >= 100
+        ):
+            raise OperationError("record_limit", f"At most 100 {table} records per branch", 409)
+
     def _dispatch(self, db, name, a):
+        if name == "observation_create":
+            _, state, context = self._observation_source(db, a.branch_id, a.tick)
+            self._record_capacity(db, "observation", a.branch_id)
+            observation = observe_envelope(state, a.actor_id, a.role, context=context)
+            id = uid()
+            db.execute(
+                "INSERT INTO observation VALUES(?,?,?)",
+                (id, a.branch_id, canonical(observation.model_dump(mode="json"))),
+            )
+            return self._observation(db, id)
+        if name == "observation_get":
+            return self._observation(db, a.id)
+        if name == "adjudication_create":
+            row = self._row(db, "observation", a.observation_id)
+            observation = ObservationEnvelope.model_validate_json(row["observation_json"])
+            spec, state, context = self._observation_source(db, row["branch_id"], observation.tick)
+            self._record_capacity(db, "adjudication", row["branch_id"])
+            id = uid()
+            record, next_state = adjudicate(
+                spec,
+                state,
+                observation,
+                a.proposal,
+                context=context,
+                adjudicator_id=a.adjudicator_id,
+                record_id=id,
+            )
+            result = {
+                "id": id,
+                "observation_id": a.observation_id,
+                "record": record.model_dump(mode="json"),
+                "next_state": next_state.model_dump(mode="json"),
+            }
+            db.execute(
+                "INSERT INTO adjudication VALUES(?,?,?,?)",
+                (id, row["branch_id"], a.observation_id, canonical(result)),
+            )
+            return result
+        if name == "adjudication_get":
+            return self._adjudication(self._row(db, "adjudication", a.id))
+        if name == "adjudication_list":
+            self._branch(db, a.branch_id)
+            return {
+                "items": [
+                    self._adjudication(row)
+                    for row in db.execute(
+                        "SELECT * FROM adjudication WHERE branch_id=? ORDER BY rowid",
+                        (a.branch_id,),
+                    )
+                ]
+            }
         if name == "scenario_list":
             return {
                 "items": [
