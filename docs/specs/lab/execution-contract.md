@@ -1,8 +1,73 @@
 # Laboratory execution and adapter contract
 
+## Bounded analysis projects
+
+`analysis_start` is an idempotent mutation accepting `request: VisionRequest` and optional bounded
+`budget`. It explicitly persists a `tianji.analysis.v1` project and returns a queued `analysis`
+job. `analysis_get` reads a current project by ID; `analysis_list` discovers project summaries.
+`job_get` and `job_cancel` share the existing authenticated registry. Analysis results have their
+own task/issue schema and never pass through supply-chain branch validation. The Web's new project
+action is distinct from the legacy ephemeral Generate action.
+
+Task hierarchy/dependencies are acyclic; issue feedback is permitted. Producing task identity,
+claim references, role/output pairing and candidate supersession are validated. Separate same-model
+role calls are not independent evidence. Budgets and structured partial results, active cancellation,
+restart interruption and privacy boundaries are specified in [bounded analysis](../../bounded-analysis.md).
+New tables are additive; existing vision/branch/workspace records are not converted or renamed.
+
 ## 1. Scope / trigger
 
 Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario, branch, job, workspace or import schema changes. The model is a fictional `supply-chain` kernel whose rule label is derived from the frozen specification: an empty exogenous-disturbance schedule is `supply-chain.v1`, a non-empty one is `supply-chain.v2`. All external clients are local directors. Participant projections and saved observations are not deployed per-user authorization. The offline adjudication service retains director-only, independently kernel-checked previews; it never mutates a recorded branch.
+
+## Goal-directed scenario analysis
+
+The primary workbench accepts an open-ended objective. It is separate from the deterministic
+supply-chain kernel: schema validation proves well-formedness, not that an intervention works.
+The supply-chain Web page is removed. Kernel operations and stored data remain compatible through
+HTTP, CLI and MCP; workspace selections no longer have a browser renderer.
+
+- `vision_generate` (nonmutating) accepts `vision`, `horizon`, `perspective`, `constraints`; returns
+  a draft with the exact request, plan, model name, generated time and fixed `model_hypothesis`
+  grounding. No automatic persistence or scenario conversion.
+- Plans include interpretation, assumptions, tensions, 4–8 turning points and 2–3 paths.
+  Nodes contain stage, actors, action, mechanism, prerequisites, risks and signals. Paths contain
+  title, summary, ordered node references and tradeoff. Stage order is dependency order, not time.
+- Validate bounded strings/arrays, unique identifiers, valid path references, increasing stages,
+  distinct paths, at least one exclusive intervention per path, and use of all nodes. Subset routes
+  that merely skip a step are rejected. Broken graph responses fail visibly, never become samples.
+  The current small-model prompt uses five nodes and two branching/converging routes as a
+  presentation scaffold, not a discovered causal topology.
+- `vision_save` is an explicit idempotent mutation taking `draft`; returns an immutable saved object
+  with id, created time and draft. `vision_get` retrieves one; `vision_list` lists bounded summaries.
+  At most 100 saved analyses. Saves are structurally checked but user-supplied content is not proof
+  of model origin or truth; stored model metadata is descriptive, not an authenticity certificate.
+- Local inference shares the configured loopback provider and concurrency limit with actor proposals,
+  uses a bounded response and deadline, and never holds a SQLite transaction during network IO.
+- Browser input edits, disconnects and newer selections must invalidate stale responses. Save is a
+  separate user action with readback. No speculative probability, fabricated evidence or fake progress.
+
+## Runtime statistics
+
+`analysis_stats({})` is authenticated and nonmutating. It validates explicitly saved drafts and
+returns `saved_analyses`, `nodes`, `paths`, `scope="saved_analyses_only"` and
+`architecture="single_model_single_call"`. Counts sum saved objects, not unique real-world claims
+or inference calls. No activity log is collected. Browser generation timing is in-memory only,
+measured around successful generation and validation, never inferred from saved timestamps.
+The legacy keys keep their original scope and architecture values. Additive `multi_agent_runs`,
+`multi_agent_tasks` and `multi_agent_nodes` count durable projects, their actual task records and
+validated issue nodes separately; cancelled/partial projects are included, not labelled successful.
+
+## Command-line access
+
+The CLI discovers the live capability registry rather than maintaining a second operation list.
+Every registered operation is invokable with a JSON argument object, with the same authentication,
+validation, idempotency and error behavior as Web/MCP. JSON stdout is machine-readable; diagnostics
+and mutation request IDs belong on stderr, failures return nonzero, and writes never retry silently.
+Job commands return queued/running state without claiming completion; poll `job_get` explicitly.
+
+`vision_*`, the `vision` request key and internal class names are compatibility identifiers.
+User-facing terminology is goal-directed scenario analysis / 目标导向情景分析. This wording does not
+upgrade model-generated hypotheses into scientifically validated claims.
 
 ## 2. Signatures
 
@@ -19,7 +84,7 @@ Applies to `backend/tianji_lab/`, `web/src/` and their tests whenever a scenario
 
 Mutations require request IDs, stored in the same transaction as their effects. Same operation/request ID/arguments returns the original response. A retry is not a future-state query: refetch jobs and workspace. MCP creates one request ID per tool call; separate tool calls are separate user intents.
 
-The workspace stores selected scenario (including empty scenarios), selected branch, comparison target, actual recorded tick and panel. Selecting a branch derives its scenario; explicitly contradictory branch/scenario IDs fail. Changing scenario clears stale branch/tick/comparison; changing primary branch clears comparison unless explicitly supplied. Comparison requires equal frozen specs. Revision CAS prevents silent lost updates. Explicit null equals omitted for scenario/tick/panel; branch/comparison null clears that selection. The browser clears the previous branch while a different one loads so branch-dependent controls never act on a workspace/branch mismatch. State is desired state, not a browser acknowledgement.
+The workspace stores selected scenario (including empty scenarios), selected branch, comparison target, actual recorded tick and panel. Selecting a branch derives its scenario; explicitly contradictory branch/scenario IDs fail. Changing scenario clears stale branch/tick/comparison; changing primary branch clears comparison unless explicitly supplied. Comparison requires equal frozen specs. Revision CAS prevents silent lost updates. Explicit null equals omitted for scenario/tick/panel; branch/comparison null clears that selection. These compatibility operations retain desired state only; the removed supply-chain page no longer renders it. They are not browser acknowledgements.
 
 Jobs freeze scenario/spec/revision on enqueue. One supervisor spawns a bounded subprocess and commits results only while job status is running. Queue max32, search max50000, subprocess wall limit30s. Cancellation prevents branch commit; shutdown/restart interrupts running work, queued jobs survive. Do not use the HTTP event loop for CPU search.
 
@@ -41,9 +106,9 @@ explicit public-rule allowlist, never the full specification/state, actor identi
 Output must be exactly one JSON action, without refusal, tool calls, reasoning or truncation.
 Actor/role/hash/policy (`local.llamacpp.v1`) are server-bound. Permissions, affordability and horizon
 remain authoritative adjudication decisions. Errors: `actor_disabled`/`actor_unavailable` (503),
-`actor_busy` (409), `actor_invalid_output` (502). No failure invents an action. The Web leaves
-adjudication explicit and drops late proposals after selection/identity changes. Editing the action
-switches attribution to `manual.director.v1`.
+`actor_busy` (409), `actor_invalid_output` (502). No failure invents an action. HTTP/CLI/MCP callers
+request adjudication explicitly; the removed Web page provides no proposal/adjudication controls.
+Callers manually changing an action should use `manual.director.v1` rather than model attribution.
 
 ## 4. Validation and error matrix
 
@@ -63,7 +128,7 @@ switches attribution to `manual.director.v1`.
 
 Good: run a default wait baseline, search for shortage0 under spend100, replay candidates, fork baseline at T2, export/import the fork; parent stays byte-for-byte unchanged.
 
-Base: attach a workspace with no selected branch; select an empty scenario through MCP; Web displays the real empty state. Select a goal branch, comparison target and T3 through MCP; browser independently displays those values.
+Base: attach a workspace with no selected branch; select an empty scenario through MCP and read it back with `workspace_get`. Select a compatible goal branch, comparison target and T3; the API returns those values. No browser synchronization is implied.
 
 Bad: forge a fork start while recomputing outer digest; import must reject against replayed ancestry. Reimport a valid imported fork must keep parent provenance. Budget1 without a plan must say undecided/budget_exhausted, not no_solution.
 
@@ -75,18 +140,16 @@ Bad: forge a fork start while recomputing outer digest; import must reject again
 - `tests/test_workspace.py`: scenario/branch/compare selection, empty scenarios, contradictory IDs, selected comparison invariants.
 - `tests/test_m2_private_observation.py`, `test_adjudication_service.py`: strict immutable projections and hashes, actor/role/context binding, independent referee label, role action permissions, real forward equality, persistence/restart, transactional idempotency/caps/rollback, frozen revisions, imported/fork identity, HTTP allowlists and unchanged branch/jobs/workspace.
 - `tests/test_api.py`, `test_mcp.py`: auth/origin/body bounds, actual CLI HTTP service and official MCP SDK initialization/list/call, published capability schema matching the live model.
-- Frontend tests cover stale async selection, director proposal identity and manual/model policy attribution. Inspect real browser behavior when changing the workbench; do not store routine reports or screenshot archives.
+- Frontend tests cover the remaining application navigation, shared capability/transport validation, stale analysis responses and explicit saves. Backend tests retain proposal identity and policy validation. Inspect real browser behavior when changing the workbench; do not store routine reports or screenshot archives.
 
 Use the documented test/build commands. Temporary test data is cleaned up; no per-session evidence archive or dedicated evaluation runner is required.
 
 ## 7. Wrong vs correct
 
-Wrong: apply desired branch ID immediately, fail its fetch once, then skip future loading because IDs already match. Correct: track loaded branch independently and retry missing results; reject out-of-generation or out-of-revision responses.
+Wrong: let an old generated analysis replace a newer selection or edited request. Correct: invalidate obsolete requests and reject late results.
 
-Wrong: reload terminal job history and auto-select every old result again. Correct: restored terminal jobs are already handled; preserve the last workspace selection.
+Wrong: remove the supply-chain page and silently drop its registry operations or stored objects. Correct: preserve HTTP/CLI/MCP compatibility and document that workspace state has no browser renderer.
 
-Wrong: keep the previous branch selected and actionable while a different workspace branch loads. Correct: clear the branch for the duration of the load; branch-dependent buttons stay disabled until the matching branch object arrives.
-
-Wrong: show editable rev4 parameters beside a rev2 result without distinction. Correct: show frozen-revision mismatch, expose frozen parameters/goal and stable short IDs for same-name candidates.
+Wrong: treat current scenario parameters as a recorded branch specification. Correct: retain the branch's frozen revision/specification and compare only compatible branches.
 
 Wrong: restart recovery runs before checking directory ownership. Correct: acquire the exclusive lock first, then mark abandoned jobs interrupted.
