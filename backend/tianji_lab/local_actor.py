@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from .local_transport import post_completion
 from .models import Action, Model, Scenario
 from .offline_adjudication import ActionProposal, ObservationEnvelope
 
@@ -167,29 +168,15 @@ class LocalActor:
             "cache_prompt": False,
             "chat_template_kwargs": {"enable_thinking": False},
         }
-        try:
-            # httpx timeouts bound each IO phase; asyncio additionally bounds the
-            # whole request, including a server that trickles response bytes.
-            async with asyncio.timeout(TIMEOUT_SECONDS):
-                async with httpx.AsyncClient(
-                    trust_env=False, follow_redirects=False, timeout=TIMEOUT_SECONDS
-                ) as client:
-                    async with client.stream(
-                        "POST", origin + "/v1/chat/completions", json=payload
-                    ) as response:
-                        if response.status_code != 200:
-                            raise LocalActorError(
-                                "actor_unavailable", "Local model request failed", 503
-                            )
-                        body = bytearray()
-                        async for chunk in response.aiter_bytes():
-                            body.extend(chunk)
-                            if len(body) > MAX_RESPONSE_BYTES:
-                                raise LocalActorError(
-                                    "actor_invalid_output", "Local model output is invalid", 502
-                                )
-        except (httpx.HTTPError, TimeoutError, OSError):
-            raise LocalActorError("actor_unavailable", "Local model is unavailable", 503) from None
+        body = await post_completion(
+            origin,
+            payload,
+            timeout=TIMEOUT_SECONDS,
+            max_response_bytes=MAX_RESPONSE_BYTES,
+            error_factory=LocalActorError,
+            error_prefix="actor",
+            client_factory=httpx.AsyncClient,
+        )
         try:
             result = json.loads(body, object_pairs_hook=_unique_object)
             choices = result["choices"]

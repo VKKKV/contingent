@@ -62,6 +62,11 @@ class Store:
                     operation TEXT NOT NULL, request_id TEXT NOT NULL,
                     arguments_json TEXT NOT NULL, result_json TEXT NOT NULL,
                     PRIMARY KEY(operation,request_id));
+                CREATE TABLE IF NOT EXISTS vision (
+                    id TEXT PRIMARY KEY, created_at TEXT NOT NULL, draft_json TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS analysis (
+                    id TEXT PRIMARY KEY REFERENCES jobs(id), run_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL);
             """)
 
     def close(self):

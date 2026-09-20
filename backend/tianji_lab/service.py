@@ -1,5 +1,6 @@
 """Single validated operation registry shared by HTTP and the MCP adapter."""
 
+import asyncio
 import hashlib
 import json
 import multiprocessing
@@ -12,7 +13,10 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import kernel
-from .local_actor import LocalActor, LocalActorError, PublicRules
+from .analysis import AnalysisRun, AnalysisStart
+from .analysis_model import LocalAnalysisModel
+from .analysis_runner import run_analysis
+from .local_actor import LocalActor, LocalActorError, PublicRules, validate_origin
 from .models import (
     RULE_VERSION_V1,
     Action,
@@ -32,6 +36,14 @@ from .offline_adjudication import (
     observe_envelope,
 )
 from .store import Store, canonical
+from .vision import (
+    LocalVision,
+    LocalVisionError,
+    SavedVision,
+    VisionDraft,
+    VisionRequest,
+    VisionSave,
+)
 
 Identifier = Annotated[str, Field(min_length=1, max_length=100)]
 Name = Annotated[str, Field(min_length=1, max_length=100)]
@@ -163,6 +175,28 @@ class Branch(Input):
 
 # Each schema is the authoritative input schema, including MCP tools/list.
 OPERATIONS = {
+    "analysis_start": (
+        AnalysisStart,
+        True,
+        "Create and run a durable analysis project (at most 100). Intentionally persists the "
+        "request, task states and validated structured results; never raw model transcripts.",
+    ),
+    "analysis_get": (ById, False, "Read a durable analysis project and its task results."),
+    "analysis_list": (Empty, False, "List saved analysis projects, newest first (at most 100)."),
+    "vision_generate": (
+        VisionRequest,
+        False,
+        "Generate an ephemeral local-model backcasting hypothesis; not a formal simulation. "
+        "Does not save prompts or outputs. Explicitly save only if wanted.",
+    ),
+    "vision_save": (VisionSave, True, "Explicitly save an immutable vision draft (at most 100)."),
+    "vision_get": (ById, False, "Read an explicitly saved vision draft."),
+    "vision_list": (Empty, False, "List saved vision summaries, newest first."),
+    "analysis_stats": (
+        Empty,
+        False,
+        "Read actual saved-analysis, node and path counts; no prediction score.",
+    ),
     "scenario_list": (Empty, False, "List fictional scenario specifications."),
     "scenario_create": (ScenarioCreate, True, "Create a fictional scenario."),
     "scenario_update": (
@@ -269,6 +303,8 @@ def compute(payload, connection):
 class Service:
     def __init__(self, data_dir, *, start_worker=True):
         self.local_actor = LocalActor.from_env()
+        self.local_vision = LocalVision.from_env()
+        self.local_analysis = LocalAnalysisModel.from_env()
         self.store = Store(data_dir)
         self.stopping = threading.Event()
         self.wake = threading.Event()
@@ -279,6 +315,26 @@ class Service:
                 db.execute(
                     "INSERT INTO scenario VALUES(?,?,?)", (uid(), 1, canonical(spec.model_dump()))
                 )
+            # Never replay model work after a process restart. Only untouched queued
+            # projects may resume; recovery happens after acquiring directory ownership.
+            for row in db.execute(
+                "SELECT jobs.status,analysis.run_json FROM jobs JOIN analysis "
+                "ON jobs.id=analysis.id WHERE jobs.status IN ('queued','running')"
+            ).fetchall():
+                run = AnalysisRun.model_validate_json(row["run_json"])
+                if (
+                    row["status"] == "running"
+                    or run.status != "queued"
+                    or any(
+                        task.status != "queued" or task.started_at is not None for task in run.tasks
+                    )
+                    or run.calls
+                ):
+                    run = self._stop_analysis(
+                        run, "interrupted", "Worker restarted during analysis"
+                    )
+                    self._write_analysis(db, run)
+                    self._finish_analysis(db, run)
             db.execute(
                 "UPDATE jobs SET status='interrupted',error='Worker restarted during computation' "
                 "WHERE status='running'"
@@ -323,6 +379,12 @@ class Service:
                 raise OperationError(
                     "request_id_required", "Mutation requires request_id (1..128 characters)"
                 )
+            if name == "vision_generate":
+                # Ephemeral inference never opens a transaction or writes an idempotency record.
+                try:
+                    return self.local_vision.generate(value).model_dump(mode="json")
+                except LocalVisionError as exc:
+                    raise OperationError(exc.code, exc.message, exc.status) from None
             if name == "actor_propose":
                 # Validate and detach a saved projection under the normal store
                 # boundary, then release SQLite before any model/network work.
@@ -381,6 +443,65 @@ class Service:
             "result": json.loads(row["result_json"]) if row["result_json"] else None,
             "error": row["error"],
         }
+
+    def _analysis(self, db, id):
+        run = AnalysisRun.model_validate_json(self._row(db, "analysis", id)["run_json"])
+        if run.id != id:
+            raise ValueError("Analysis identity mismatch")
+        return run
+
+    @staticmethod
+    def _write_analysis(db, run):
+        # Validate serialized data, not an already constructed/mutated model instance.
+        data = canonical(run.model_dump(mode="json"))
+        AnalysisRun.model_validate_json(data)
+        db.execute("UPDATE analysis SET run_json=? WHERE id=?", (data, run.id))
+
+    @staticmethod
+    def _finish_analysis(db, run):
+        result = {"analysis_id": run.id} if run.status in ("succeeded", "partial") else None
+        db.execute(
+            "UPDATE jobs SET status=?,result_json=?,error=? WHERE id=?",
+            (run.status, canonical(result) if result else None, run.error, run.id),
+        )
+
+    @staticmethod
+    def _stop_analysis(run, status, message):
+        data = run.model_dump(mode="json")
+        timestamp = now()
+        data.update(status=status, error=message, finished_at=timestamp)
+        finished = datetime.fromisoformat(timestamp)
+        elapsed = []
+        for task in data["tasks"]:
+            duration = None
+            if task["started_at"] is not None:
+                try:
+                    started = datetime.fromisoformat(task["started_at"])
+                    duration = max(0, int((finished - started).total_seconds() * 1000))
+                except (ValueError, TypeError):
+                    # Older snapshots accept arbitrary timestamp strings. Do not
+                    # invent a start time or let them prevent cancellation.
+                    pass
+            if duration is not None:
+                elapsed.append(duration)
+            if task["status"] in ("queued", "running"):
+                task.update(status=status, error=message, finished_at=timestamp)
+                if duration is not None:
+                    task["duration_ms"] = max(task["duration_ms"] or 0, duration)
+        # There is no persisted run start timestamp. The earliest explicit task
+        # start bounds execution time; created_at would incorrectly include queueing.
+        data["duration_ms"] = max(data["duration_ms"], *elapsed) if elapsed else data["duration_ms"]
+        return AnalysisRun.model_validate(data)
+
+    @staticmethod
+    def _queue_capacity(db):
+        if (
+            db.execute("SELECT count(*) FROM jobs WHERE status IN ('queued','running')").fetchone()[
+                0
+            ]
+            >= 32
+        ):
+            raise OperationError("queue_full", "At most 32 outstanding jobs", 409)
 
     def _workspace(self, db, id):
         row = self._row(db, "workspace", id)
@@ -498,6 +619,103 @@ class Service:
             raise OperationError("record_limit", f"At most 100 {table} records per branch", 409)
 
     def _dispatch(self, db, name, a):
+        if name == "analysis_start":
+            # Configuration validation only: enqueue must never contact the provider.
+            if not self.local_analysis.url or not self.local_analysis.model:
+                raise OperationError("analysis_disabled", "Local analysis is not configured", 503)
+            try:
+                validate_origin(self.local_analysis.url)
+                if (
+                    not self.local_analysis.model.strip()
+                    or len(self.local_analysis.model) > 200
+                    or any(ord(char) < 32 for char in self.local_analysis.model)
+                ):
+                    raise ValueError
+            except ValueError:
+                raise OperationError(
+                    "analysis_unavailable", "Local analysis configuration is invalid", 503
+                ) from None
+            if db.execute("SELECT count(*) FROM analysis").fetchone()[0] >= 100:
+                raise OperationError("record_limit", "At most 100 saved analysis projects", 409)
+            self._queue_capacity(db)
+            run = AnalysisRun(id=uid(), request=a.request, budget=a.budget, created_at=now())
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (run.id, name, "queued", canonical({"analysis_id": run.id}), run.created_at),
+            )
+            db.execute(
+                "INSERT INTO analysis VALUES(?,?,?)",
+                (run.id, canonical(run.model_dump(mode="json")), run.created_at),
+            )
+            return self._job(db, run.id)
+        if name == "analysis_get":
+            return self._analysis(db, a.id).model_dump(mode="json")
+        if name == "analysis_list":
+            return {
+                "items": [
+                    {
+                        "id": run.id,
+                        "status": run.status,
+                        "created_at": run.created_at,
+                        "request": run.request.model_dump(mode="json"),
+                    }
+                    for row in db.execute(
+                        "SELECT run_json FROM analysis ORDER BY rowid DESC LIMIT 100"
+                    )
+                    for run in [AnalysisRun.model_validate_json(row[0])]
+                ]
+            }
+        if name == "vision_save":
+            if db.execute("SELECT count(*) FROM vision").fetchone()[0] >= 100:
+                raise OperationError("record_limit", "At most 100 saved visions", 409)
+            saved = SavedVision(id=uid(), created_at=now(), draft=a.draft)
+            db.execute(
+                "INSERT INTO vision VALUES(?,?,?)",
+                (saved.id, saved.created_at, canonical(saved.draft.model_dump(mode="json"))),
+            )
+            return saved.model_dump(mode="json")
+        if name == "vision_get":
+            row = self._row(db, "vision", a.id)
+            return SavedVision(
+                id=row["id"],
+                created_at=row["created_at"],
+                draft=VisionDraft.model_validate_json(row["draft_json"]),
+            ).model_dump(mode="json")
+        if name == "analysis_stats":
+            rows = db.execute("SELECT draft_json FROM vision ORDER BY rowid").fetchall()
+            drafts = [VisionDraft.model_validate_json(row[0]) for row in rows]
+            result = {
+                "saved_analyses": len(drafts),
+                "nodes": sum(len(draft.plan.nodes) for draft in drafts),
+                "paths": sum(len(draft.plan.paths) for draft in drafts),
+                "scope": "saved_analyses_only",
+                "architecture": "single_model_single_call",
+            }
+            runs = [
+                AnalysisRun.model_validate_json(row[0])
+                for row in db.execute("SELECT run_json FROM analysis ORDER BY rowid LIMIT 100")
+            ]
+            if runs:
+                result.update(
+                    multi_agent_runs=len(runs),
+                    multi_agent_tasks=sum(len(run.tasks) for run in runs),
+                    multi_agent_nodes=sum(len(run.nodes) for run in runs),
+                    multi_agent_candidates=sum(len(run.candidates) for run in runs),
+                )
+            return result
+        if name == "vision_list":
+            items = []
+            for row in db.execute("SELECT * FROM vision ORDER BY rowid DESC LIMIT 100"):
+                draft = VisionDraft.model_validate_json(row["draft_json"])
+                items.append(
+                    {
+                        "id": row["id"],
+                        "created_at": row["created_at"],
+                        "title": draft.plan.title,
+                        "vision": draft.request.vision,
+                    }
+                )
+            return {"items": items}
         if name == "observation_create":
             _, state, context = self._observation_source(db, a.branch_id, a.tick)
             self._record_capacity(db, "observation", a.branch_id)
@@ -589,13 +807,7 @@ class Service:
         if name == "branch_get":
             return self._branch(db, a.id)
         if name in ("run_forward", "run_backward", "branch_fork"):
-            if (
-                db.execute(
-                    "SELECT count(*) FROM jobs WHERE status IN ('queued','running')"
-                ).fetchone()[0]
-                >= 32
-            ):
-                raise OperationError("queue_full", "At most 32 outstanding jobs", 409)
+            self._queue_capacity(db)
             payload = a.model_dump(mode="json")
             payload["kind"] = name
             payload["prefix_actions"] = []
@@ -690,7 +902,14 @@ class Service:
         if name == "job_get":
             return self._job(db, a.id)
         if name == "job_cancel":
-            self._row(db, "jobs", a.id)
+            row = self._row(db, "jobs", a.id)
+            if row["kind"] == "analysis_start" and row["status"] in ("queued", "running"):
+                run = self._stop_analysis(
+                    self._analysis(db, a.id), "cancelled", "Analysis cancelled"
+                )
+                self._write_analysis(db, run)
+                self._finish_analysis(db, run)
+                return self._job(db, a.id)
             db.execute(
                 "UPDATE jobs SET status='cancelled',error='Cancelled; no result committed' "
                 "WHERE id=? AND status IN ('queued','running')",
@@ -771,6 +990,58 @@ class Service:
             return self._workspace(db, a.id)
         raise OperationError("not_found", "Unknown operation", 404)
 
+    async def _run_analysis_job(self, row):
+        id = row["id"]
+
+        def cancelled():
+            if self.stopping.is_set():
+                return "interrupted"
+            with self.store.transaction() as db:
+                status = self._job(db, id)["status"]
+            return "cancelled" if status == "cancelled" else None
+
+        def save(run):
+            with self.store.transaction() as db:
+                if self.stopping.is_set() or self._job(db, id)["status"] != "running":
+                    return False
+                original = self._analysis(db, id)
+                if (run.id, run.request, run.budget, run.created_at) != (
+                    original.id,
+                    original.request,
+                    original.budget,
+                    original.created_at,
+                ):
+                    raise ValueError("Analysis immutable input changed")
+                self._write_analysis(db, run)
+                if run.status not in ("queued", "running"):
+                    self._finish_analysis(db, run)
+                return True
+
+        try:
+            with self.store.transaction() as db:
+                if self._job(db, id)["status"] != "running":
+                    return
+                run = self._analysis(db, id).model_copy(update={"status": "running"})
+                self._write_analysis(db, run)
+            result = await run_analysis(run, self.local_analysis, save, cancelled)
+            if not self.stopping.is_set():
+                if result.status in ("queued", "running"):
+                    raise ValueError("Analysis coordinator returned unfinished work")
+                if save(result) or not self.stopping.is_set():
+                    return
+        except Exception:
+            # Exception text can contain provider responses or request material.
+            # Retain only validated checkpoints and a constant public error.
+            pass
+        with self.store.transaction() as db:
+            if self._job(db, id)["status"] != "running":
+                return
+            status = "interrupted" if self.stopping.is_set() else "failed"
+            message = "Service stopped" if self.stopping.is_set() else "Analysis execution failed"
+            run = self._stop_analysis(self._analysis(db, id), status, message)
+            self._write_analysis(db, run)
+            self._finish_analysis(db, run)
+
     def _worker(self):
         context = multiprocessing.get_context("spawn")
         while not self.stopping.is_set():
@@ -783,6 +1054,9 @@ class Service:
             if not row:
                 self.wake.wait(0.2)
                 self.wake.clear()
+                continue
+            if row["kind"] == "analysis_start":
+                asyncio.run(self._run_analysis_job(row))
                 continue
             payload = json.loads(row["input_json"])
             receive, send = context.Pipe(duplex=False)
