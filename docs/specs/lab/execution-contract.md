@@ -1,5 +1,9 @@
 # Laboratory execution and adapter contract
 
+This is the cross-layer contract for operations, validation, compatibility and lifecycle. Current
+analysis semantics are summarized in [bounded-analysis](../../bounded-analysis.md); research limits
+are in [research-integration](../../research-integration.md).
+
 ## Bounded analysis projects
 
 `analysis_start` is an idempotent mutation accepting `request: VisionRequest` and optional bounded

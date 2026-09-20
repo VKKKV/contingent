@@ -1,15 +1,26 @@
 # Contingent documentation
 
-- [Laboratory guide](laboratory.md): setup, usage, model semantics, local inference and MCP.
-- [Execution contract](specs/lab/execution-contract.md): shared operations, validation and lifecycle.
-- [Development conventions](specs/lab/index.md): implementation boundaries and normal test commands.
-- [Bounded analysis](bounded-analysis.md): real task execution, graph provenance, budgets and privacy.
-- [Current state](../handoff.md): next development work, not a session log.
-- [Next development](next-development.md): traceable sources, human review, assumption branches and
-  portable packages, with pinned open-source comparisons and adoption decisions.
-- [Development proposal](development-plan.md): naming, dependency-led simplification and bounded
-  multi-agent analysis. Remaining visual-fidelity work is tracked separately from
-  implemented task orchestration and page removal.
+Read documents in this order:
 
-Keep these documents aligned with the implementation. Test runs do not require committed reports
-or artifact archives. Historical implementation and planning material is available in Git.
+1. [Product goal](../goal.md) — product identity, user promise and non-negotiable boundaries.
+2. [Laboratory guide](laboratory.md) — run the service, use the Web/CLI/MCP and understand legacy
+   deterministic operations.
+3. [Bounded analysis](bounded-analysis.md) — current v1/v2 analysis behavior, lifecycle, graphs and
+   resource limits.
+4. [Online research](research-integration.md) — current public search/fetch/citation implementation,
+   privacy and known limitations.
+5. [Execution contract](specs/lab/execution-contract.md) — cross-layer operation and compatibility
+   contract; authoritative when implementation changes it.
+6. [Development conventions](specs/lab/index.md) — short engineering rules.
+
+Planning and state:
+
+- [Current state](../handoff.md) — concise implementation snapshot, not a session log.
+- [Next development](next-development.md) — future product increments only.
+- [Development plan](development-plan.md) — short architecture decisions and accepted boundaries.
+- [Worldlines and adaptive research](worldlines-and-research.md) — future evidence-frontier design and
+  interaction direction; source-level references are design inputs, not installation or benchmark claims.
+
+Keep current behavior in the implementation documents above. Do not duplicate command lists,
+contracts or transient test totals across documents; link to the canonical document instead.
+Third-party/vendor README files retain their upstream notices and are outside this documentation map.

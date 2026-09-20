@@ -1,123 +1,82 @@
 # Bounded analysis projects
 
-The new analysis workflow creates a durable project, unlike the legacy ephemeral
-`vision_generate` operation. Click **创建并运行分析** in the analysis workspace, or call
-`analysis_start` through the shared HTTP, CLI or MCP registry. This intentionally saves the
-user request, task state and validated structured outputs. It does not save assembled prompts,
-SDK message history, raw completions, hidden reasoning or per-event traces.
+This document is the canonical description of current analysis execution. The CLI and HTTP examples
+below use the shared operation registry; the cross-layer schema is in
+[execution-contract.md](specs/lab/execution-contract.md).
+
+## Versions and research
+
+`analysis_start` creates durable offline v1 projects. `analysis_start_v2` creates v2 projects, online
+by default; `analysis_list_v2` lists both versions and `analysis_get` preserves the stored version.
+Existing v1 requests and saved drafts remain offline and are never silently upgraded.
+
+For v2, framing proposes bounded queries, a controlled collector searches and reads public sources,
+and later roles receive selected exact passages. Source snapshots, passage hashes/spans, task
+visibility and validated citations are stored atomically with the run. Missing research or citations
+produce a partial result even when model tasks finish. Explicit offline v2 is hypothesis-only/partial.
+Critique-triggered follow-up search and user-material attachment are not implemented.
+See [research integration](research-integration.md) for provider, DNS, privacy and byte limits.
 
 ## Operations
 
 ```bash
-./tianji schema analysis_start
-./tianji call analysis_start --json '{"request":{"vision":"减少社区夏季高温伤害","horizon":"未来两年","constraints":"有限公共预算"}}'
+./tianji schema analysis_start_v2
+./tianji call analysis_start_v2 --json '{"request":{"vision":"减少社区夏季高温伤害","horizon":"未来两年","constraints":"有限公共预算"}}'
 ./tianji call job_get --json '{"id":"RUN_ID"}'
 ./tianji call analysis_get --json '{"id":"RUN_ID"}'
-./tianji call analysis_list
+./tianji call analysis_list_v2
 ./tianji call job_cancel --json '{"id":"RUN_ID"}'
 ```
 
-The start response is a queued job, not a completed analysis. `analysis_get` exposes the current
-versioned project snapshot while it runs; `analysis_list` permits reopening projects after a
-refresh. Idempotent creation uses the existing mutation request ID contract. Retrying with the
-same ID and arguments returns the original creation response and does not start another project.
-Read current state with `job_get` or `analysis_get` afterward.
+Start returns a queued job, not a completed analysis. Read current state with `job_get` or
+`analysis_get`. Creation is idempotent: reuse the same mutation request ID and arguments to recover
+an uncertain response without starting another project.
 
-## Browser request lifecycle
+## Execution model
 
-The durable analysis workspace uses `@tanstack/query-core` QueryClient/QueryObserver for
-catalog/list/project reads, deduplication, cancellation and active-run polling. Each session has
-an isolated cache; disconnect or token change clears it, and credentials are never query keys.
-Read errors pause polling until explicit recovery. Terminal runs and unmounted views stop polling.
-Focus/reconnect do not refetch, and reads or mutations do not retry automatically.
+A deterministic coordinator makes separate PydanticAI typed calls to the same loopback llama.cpp
+model. There is no manager-model call and no agent-controlled shell, filesystem or retrieval tool.
+Each strategy receives the user request, framing result and its own perspective, not another
+strategy's first draft.
 
-Creation remains an explicit mutation with a preserved UUID and input intent after an ambiguous
-network outcome, including across remounts. Definite rejection unlocks editing. Server cancellation
-remains `job_cancel` followed by a fresh canonical read; aborting a browser read alone never cancels
-a server job. The legacy single-call controller remains separate. Explicit saves retain their
-request ID and draft after ambiguous failures; once the created ID is known, retries only read back
-that object. Invalid pending creation records cannot lock the editor.
+- Framing defines observable criteria, assumptions, unknowns and one to three perspectives. A
+  clarification need can stop downstream work with a partial result.
+- Each perspective produces its own claims and intervention.
+- A critic references concrete strategy claim IDs and proposes testable objections.
+- At most one strategy receives a targeted revision.
+- Synthesis retains alternatives and unresolved questions; agreement never creates verified facts.
 
-## What actually runs
+The number of perspectives follows framing within resource ceilings; it is not a fixed five-node
+shape. Same-model roles are separately executed tasks, not independent evidence, empirical validation
+or calibrated prediction. V1 has no retrieval; V2 has bounded retrieval, not fact checking.
 
-A deterministic coordinator uses separate PydanticAI typed agents against the same loopback
-llama.cpp model. There is no manager-model call or agent-controlled filesystem, shell or network
-retrieval tool. Each strategy's initial context contains the user request, framing result and its
-own perspective, never another strategy's first draft.
+## Lifecycle and limits
 
-- Framing defines observable criteria, assumptions, unknowns and one to three relevant perspectives.
-  An explicit clarification need stops downstream generation with a partial result.
-- Each perspective receives a separate strategy call and produces its own claims and intervention.
-- A separate critic references concrete generated claim IDs and proposes testable objections.
-- At most one strategy receives a targeted revision. Original claims and objections remain visible.
-- Synthesis preserves alternatives and unresolved questions; agreement cannot create verified facts.
+Default ceilings are eight model calls, eight tasks, one revision pass, 900 seconds and 16,000
+reserved output tokens. Server maxima are 1,200 seconds and 20,000 reserved tokens. Per-call output
+ceilings are 1,000 framing, 1,600 strategy/revision, 1,400 critic and 1,200 synthesis tokens. The
+full ceiling is reserved before each call, including failures. No automatic SDK/validation retry is
+enabled; resource exhaustion preserves completed structured results as partial.
 
-The number of perspectives follows the framing output within a resource ceiling. It is not a
-fixed five-node diagram. All roles initially use the same model and can share its biases. These
-are separately executed tasks, not independent sources of evidence, empirical validation or
-calibrated predictions. There is no factual researcher or live source retrieval.
+The model slot is shared with legacy generation and serialized to one call at a time. A busy model is
+an explicit failure. Network calls stay outside SQLite transactions. Cancellation stops later tasks;
+late results cannot overwrite a cancelled project. Restart marks in-flight work interrupted and keeps
+completed results; it does not replay a started call. Queued work may still run. Targeted reruns and
+resumable execution are not implemented.
 
-## Transport compatibility
+## Graph semantics
 
-The legacy actor and single-call vision paths share a bounded HTTP exchange in
-`local_transport.py`. Their original payloads, deadlines, response limits, error codes,
-parsers and slot ownership remain endpoint-specific. Raw response bytes and decompressed output
-are both bounded before buffering. Identity, gzip and zlib/raw-deflate responses are supported;
-unsupported encodings are rejected. The new PydanticAI adapter retains separate usage and JSON
-validation. No legacy inference becomes a durable analysis job or implicit save.
+The task hierarchy and scheduling dependencies are independently validated as acyclic. The issue
+graph may contain feedback and mutual influence. Issue nodes identify their producing task; critique
+references original strategy claims; revisions retain `supersedes` lineage. The schema has no model-
+controlled `verified` flag or invented citation. The issue graph is capped at 20 nodes and 40 edges.
 
-## Limits and lifecycle
-
-Default run ceilings are eight calls, eight tasks, one revision pass, 900 elapsed seconds and
-16,000 reserved output tokens. The input budget can lower these limits; the server permits at most
-1,200 seconds and 20,000 reserved output tokens. Per-call output ceilings are 1,000 for framing,
-1,600 for strategy/revision, 1,400 for critic and 1,200 for synthesis. The full ceiling is reserved
-before issuing each call, including calls that fail; missing usage is not treated as free work.
-No automatic SDK or validation retry is enabled. The provider request has its own 180-second
-whole-call deadline and bounded input/response bytes. Resource exhaustion retains completed
-structured outputs as partial rather than fabricating a synthesis.
-
-The model call slot is shared with legacy generation and supply-chain actor proposals. One model
-call runs at a time. The single job supervisor also serializes analysis and deterministic jobs;
-a long analysis can delay a queued rules job. A busy model is an explicit failure, not an implicit
-unbounded wait or retry. Local provider requests do not execute inside SQLite transactions.
-
-Cancel updates the durable job/project and stops subsequent tasks; the active asynchronous client
-request is cancelled and late results cannot overwrite the cancelled project. Provider-side
-cancellation remains best effort. Restart marks in-flight work interrupted and preserves completed
-structured results; it does not resume or replay an already-started call. Unstarted queued work
-can still run. Targeted user-requested reruns and resumable execution are not implemented.
-
-## Two graphs, not a fabricated agent conversation
-
-`tianji.analysis.v1` separates tasks, issue nodes/edges and candidate strategies. Task hierarchy
-(`parent_id`) and scheduling dependencies are independently validated as acyclic. Issue graphs
-may contain feedback and mutual influence; they are not constrained to the legacy four stages.
-
-Issue nodes identify their producing completed task. Strategy claims are server-namespaced,
-critique targets are restricted to original strategy claims, excluding the framing question,
-objections themselves and later revisions. Candidate strategies reference only their own
-producing task's claims. A revision keeps explicit `supersedes` lineage. Issue nodes remain
-`model_hypothesis` or `model_objection`; the schema has no model-controlled “verified” flag or
-invented source-citation field. The issue graph has at most 20 nodes and 40 edges.
-
-The Web uses React Flow/Dagre to link actual task status and issue contributions. Status, duration,
-public brief, structured result and errors are inspectable; private chain-of-thought is not.
+The Web renders actual task status, duration, public brief, structured results, errors, issue
+contributions and citations. It never renders hidden chain-of-thought or simulated debate.
 
 ## Compatibility
 
-`vision_generate`, `vision_save`, `vision_get` and `vision_list` retain their prior semantics.
-Legacy saved drafts remain single-call results with no task history; the UI must not invent agents
-for them. Legacy generation still uses its original five-node structural scaffold and explicit
-save operation. New projects do not silently turn that old Generate action into auto-save.
-
-The legacy path diagram also uses React Flow/Dagre: shared nodes are rendered once, edges retain
-all path memberships, and switching paths changes highlights without moving the layout. Stage
-labels stay on nodes; horizontal ranks follow path dependencies rather than fixed stage columns.
-The goal remains a non-selectable direction, not a completed task or guaranteed outcome. Pan,
-zoom and fit are library-owned; keyboard node selection and the full detail panel remain available.
-
-`analysis_stats` retains the legacy saved-analysis/node/path fields and their
-`single_model_single_call` architecture marker. Separate multi-agent project counts are additive;
-they do not retroactively relabel old records. The fictional supply-chain kernel and all existing
-HTTP/CLI/MCP operations remain available without a dedicated Web page.
+`vision_generate`, `vision_save`, `vision_get` and `vision_list` retain their prior single-call
+semantics. Legacy saved drafts have no invented task history. The former supply-chain kernel and
+HTTP/CLI/MCP operations remain available without a dedicated Web page. See
+[the laboratory guide](laboratory.md) for operational examples.
