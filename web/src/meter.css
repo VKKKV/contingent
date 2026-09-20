@@ -1,0 +1,188 @@
+/* Static original PNGs: see public/vendor/divergencemeter/README.md.
+   Use a compact 150px cap, upstream 2px gaps and centered composition.
+   Subtract gap widths on small screens; preserve complete 130 × 384 images. */
+.runtime-meter {
+  display: grid;
+  gap: 2rem;
+  width: 100%;
+  margin: auto;
+  padding: 0 0 3rem;
+}
+.runtime-meter > * {
+  min-width: 0;
+}
+.meter-hero {
+  min-height: calc(100svh - 72px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+}
+.nixie-clock {
+  width: 100%;
+}
+.meter-hero .meter-kicker {
+  margin: 0 0 1rem;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  font-weight: normal;
+}
+.nixie-time {
+  display: block;
+}
+.nixie-bank {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  max-width: 1214px;
+  margin: 16px auto;
+  align-items: center;
+}
+.nixie-digit {
+  display: block;
+  flex: 0 1 150px;
+  width: calc((100% - 14px) / 8);
+  max-width: 150px;
+  min-width: 0;
+  height: auto;
+  aspect-ratio: 130 / 384;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.nixie-readable-time {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.meter-unit {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--accent-bright);
+  letter-spacing: 0.16em;
+}
+.meter-date {
+  display: block;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.meter-note,
+.meter-footer {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.meter-report,
+.meter-method {
+  width: min(1200px, calc(100% - 40px));
+  margin-inline: auto;
+  background: var(--panel);
+  padding: 24px;
+}
+.meter-report {
+  box-shadow: var(--panel-glow);
+}
+.meter-report h2,
+.meter-method h2 {
+  justify-content: center;
+  margin: 0 0 30px;
+  color: var(--accent-bright);
+  font-size: clamp(20px, 3vw, 32px);
+  letter-spacing: 1px;
+}
+.meter-connect {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.meter-connect label {
+  flex: 1;
+  display: grid;
+  gap: 0.3rem;
+}
+.meter-connect input {
+  width: 100%;
+  background: #080300;
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  padding: 0.65rem;
+  font: inherit;
+}
+.meter-connect button {
+  background: #140800;
+  border: 1px solid var(--line-strong);
+  color: var(--accent-bright);
+  padding: 0.55rem 0.85rem;
+  font: inherit;
+  cursor: pointer;
+}
+.meter-connect button:hover {
+  background: var(--hover-bg);
+}
+.meter-table-scroll {
+  overflow-x: auto;
+}
+.meter-report table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.meter-report th,
+.meter-report td {
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.meter-report th {
+  color: var(--accent);
+}
+.meter-report td:nth-child(2) {
+  color: var(--accent-bright);
+  font-variant-numeric: tabular-nums;
+}
+.meter-method ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  padding-left: 1.4rem;
+  color: var(--accent-bright);
+}
+.meter-method p {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.runtime-meter .error-text {
+  color: var(--error);
+  border-left: 3px solid var(--error-line);
+  padding-left: 0.75rem;
+}
+.meter-footer {
+  display: block;
+  width: min(1200px, calc(100% - 40px));
+  margin-inline: auto;
+  padding: 28px 16px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .meter-hero {
+    padding: 24px 12px;
+  }
+  .meter-connect {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .meter-report,
+  .meter-method {
+    padding: 0.8rem;
+  }
+}

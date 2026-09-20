@@ -13,6 +13,11 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
+    "@tanstack/query-core": "5.90.20",
+    "@tsparticles/engine": "3.9.1",
+    "@tsparticles/slim": "3.9.1",
+    "@xyflow/react": "^12.11.6",
     "lucide-react": "^0.468.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

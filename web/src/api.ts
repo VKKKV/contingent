@@ -1,3 +1,10 @@
+import type {
+  AnalysisBudget,
+  AnalysisRun,
+  AnalysisStatus,
+  AnalysisSummary,
+} from "./analysisTypes";
+
 export type Action = "wait" | "order_standard" | "order_express";
 export type DisturbanceKind = "demand_spike" | "supplier_loss";
 export interface Disturbance {
@@ -128,18 +135,24 @@ export interface SearchResult {
   status: "found" | "no_solution" | "budget_exhausted";
   rule_version: string;
 }
-export interface Job {
+interface JobBase {
   id: string;
-  kind: string;
-  status:
-    "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+  status: AnalysisStatus;
+  error: string | null;
+}
+export interface AnalysisJob extends JobBase {
+  kind: "analysis_start";
+  result: null | { analysis_id: string };
+}
+export interface BranchJob extends JobBase {
+  kind: "run_forward" | "run_backward" | "branch_fork";
   result: null | {
     branch?: Branch;
     branches?: Branch[];
     search?: SearchResult;
   };
-  error: string | null;
 }
+export type Job = AnalysisJob | BranchJob;
 export interface Workspace {
   id: string;
   revision: number;
@@ -192,7 +205,75 @@ export interface Capability {
   input_schema: JsonSchema;
   mutating: boolean;
 }
+export interface VisionRequest {
+  vision: string;
+  horizon: string;
+  perspective: string;
+  constraints: string;
+}
+export interface VisionNode {
+  id: string;
+  title: string;
+  stage: 1 | 2 | 3 | 4;
+  actors: string[];
+  action: string;
+  mechanism: string;
+  prerequisites: string[];
+  risks: string[];
+  signals: string[];
+}
+export interface VisionPath {
+  id: string;
+  title: string;
+  summary: string;
+  node_ids: string[];
+  tradeoff: string;
+}
+export interface VisionPlan {
+  title: string;
+  interpretation: string;
+  assumptions: string[];
+  tensions: string[];
+  nodes: VisionNode[];
+  paths: VisionPath[];
+}
+export interface VisionDraft {
+  request: VisionRequest;
+  plan: VisionPlan;
+  model: string;
+  generated_at: string;
+  grounding: "model_hypothesis";
+}
+export interface SavedVision {
+  id: string;
+  created_at: string;
+  draft: VisionDraft;
+}
+export interface VisionSummary {
+  id: string;
+  created_at: string;
+  title: string;
+  vision: string;
+}
+export interface AnalysisStats {
+  saved_analyses: number;
+  nodes: number;
+  paths: number;
+  scope: "saved_analyses_only";
+  architecture: "single_model_single_call";
+}
 export interface Operations {
+  analysis_start: [
+    { request: VisionRequest; budget?: Partial<AnalysisBudget> },
+    AnalysisJob,
+  ];
+  analysis_get: [{ id: string }, AnalysisRun];
+  analysis_list: [{}, { items: AnalysisSummary[] }];
+  analysis_stats: [{}, AnalysisStats];
+  vision_generate: [VisionRequest, VisionDraft];
+  vision_save: [{ draft: VisionDraft }, SavedVision];
+  vision_list: [{}, { items: VisionSummary[] }];
+  vision_get: [{ id: string }, SavedVision];
   observation_create: [
     {
       branch_id: string;
@@ -263,8 +344,9 @@ export class ApiError extends Error {
 export class Api {
   private capabilities: Capability[] = [];
   constructor(private token: string) {}
-  async catalog(): Promise<Capability[]> {
+  async catalog(signal?: AbortSignal): Promise<Capability[]> {
     const response = await fetch("/api/capabilities", {
+      signal,
       headers: this.headers(),
     });
     const body = await response.json();
@@ -286,6 +368,8 @@ export class Api {
   async op<K extends keyof Operations>(
     name: K,
     args: Operations[K][0],
+    signal?: AbortSignal,
+    requestId?: string,
   ): Promise<Operations[K][1]> {
     const capability = this.capabilities.find((c) => c.name === name);
     if (!capability)
@@ -296,10 +380,13 @@ export class Api {
       );
     const response = await fetch(`/api/operations/${name}`, {
       method: "POST",
+      signal,
       headers: this.headers(),
       body: JSON.stringify({
         arguments: args,
-        ...(capability.mutating ? { request_id: crypto.randomUUID() } : {}),
+        ...(capability.mutating
+          ? { request_id: requestId ?? crypto.randomUUID() }
+          : {}),
       }),
     });
     let body;
@@ -351,35 +438,3 @@ export function schemaFields(
 ): Record<string, JsonSchema> {
   return schemaAt(catalog, operation, field ? [field] : [])?.properties ?? {};
 }
-export const isTerminal = (status: Job["status"]) =>
-  ["succeeded", "failed", "cancelled", "interrupted"].includes(status);
-export function frameAtTick(branch: Branch, tick: number): Frame {
-  return (
-    branch.trajectory.frames.find((f) => f.state.tick === tick) ??
-    branch.trajectory.frames[0]
-  );
-}
-export const actionLabel: Record<string, string> = {
-  initial: "初始状态",
-  wait: "等待",
-  order_standard: "标准订货",
-  order_express: "加急订货",
-};
-export const disturbanceLabel: Record<DisturbanceKind, string> = {
-  demand_spike: "需求激增",
-  supplier_loss: "供应损失",
-};
-export const modeLabel: Record<Branch["mode"], string> = {
-  forward: "正向",
-  backward: "反推",
-  fork: "分叉",
-  import: "导入",
-};
-export const statusLabel: Record<Job["status"], string> = {
-  queued: "排队中",
-  running: "计算中",
-  succeeded: "已完成",
-  failed: "失败",
-  cancelled: "已取消",
-  interrupted: "重启中断",
-};

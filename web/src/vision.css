@@ -1,0 +1,929 @@
+.vision-shell-header {
+  height: 72px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  padding: 0 max(24px, calc((100vw - 1360px) / 2));
+  background: var(--panel);
+}
+.vision-shell-brand {
+  text-shadow: var(--heading-glow);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--accent);
+  font-size: 20px;
+  gap: 10px;
+}
+.vision-shell-brand span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+.vision-shell-header nav {
+  display: flex;
+  gap: 8px;
+}
+.vision-shell-header nav button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.vision-shell-header nav button[aria-current] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  border-radius: 0;
+}
+.vision-shell-caption {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.vision-home {
+  max-width: 1408px;
+  margin: auto;
+  padding: 52px 24px 28px;
+}
+.vision-home > * {
+  min-width: 0;
+}
+.vision-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: 36px;
+}
+.vision-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.vision-intro h1 {
+  font-size: clamp(30px, 3.7vw, 50px);
+  font-weight: 550;
+  letter-spacing: -0.8px;
+  line-height: 1.3;
+  margin: 14px 0 18px;
+}
+.vision-intro h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+.vision-intro p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.9;
+}
+.vision-intro-note {
+  border-left: 1px solid var(--line-strong);
+  padding-left: 30px;
+  min-width: 240px;
+}
+.vision-intro-note > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.vision-intro-note strong {
+  display: block;
+  font-size: 19px;
+  line-height: 1.7;
+  font-weight: 450;
+  margin-top: 8px;
+}
+.vision-mini-line {
+  display: flex;
+  align-items: center;
+  margin-top: 18px;
+}
+.vision-mini-line i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--accent);
+  transform: rotate(45deg);
+}
+.vision-mini-line b {
+  width: 45px;
+  height: 1px;
+  background: var(--line-strong);
+}
+.vision-mobile-break {
+  display: none;
+}
+.vision-compose-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+.vision-composer {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  box-shadow: var(--panel-glow);
+  padding: 24px;
+  border-radius: var(--radius);
+}
+.vision-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+.vision-field-heading > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.vision-composer textarea {
+  font-size: 17px;
+  line-height: 1.8;
+  padding: 14px;
+  background: var(--input-bg);
+  min-height: 120px;
+}
+.vision-example {
+  background: none;
+  border: 0;
+  color: var(--text-secondary);
+  padding-left: 0;
+  font-size: 11px;
+  max-width: 100%;
+  text-align: left;
+  margin: 8px 0 14px;
+}
+.vision-options {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.vision-options summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+}
+.vision-options summary > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.vision-options-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 16px 0;
+}
+.vision-options-fields label {
+  font-size: 12px;
+  color: var(--muted);
+  display: grid;
+  gap: 7px;
+}
+.vision-options-fields textarea {
+  font-size: 13px;
+  min-height: 70px;
+}
+.vision-constraints {
+  grid-column: 1/-1;
+}
+.vision-generate-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-top: 22px;
+}
+.vision-generate-row > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.vision-primary {
+  padding: 12px 19px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.vision-connection {
+  padding: 20px 0;
+}
+.vision-connection-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.vision-connection h2 {
+  font-size: 13px;
+}
+.vision-status {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+}
+.vision-status.is-connected {
+  color: var(--accent);
+}
+.vision-connection p {
+  color: var(--muted);
+  font-size: 11px;
+}
+.vision-connection form {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+}
+.vision-connection label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.vision-connection form button {
+  margin-top: 2px;
+}
+.vision-privacy-note {
+  margin-top: 15px;
+}
+.vision-error {
+  color: var(--error);
+  border: 1px solid var(--error-line);
+  background: var(--error-bg);
+  padding: 15px;
+  margin: 20px 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.vision-notice {
+  color: var(--accent);
+  padding: 12px 0;
+}
+.vision-wait {
+  margin: 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--line-strong);
+  padding: 20px;
+  background: var(--selected-bg);
+}
+.vision-wait > svg {
+  flex: none;
+  color: var(--accent);
+}
+.vision-wait strong {
+  font-size: 14px;
+}
+.vision-wait p {
+  color: var(--muted);
+  margin-top: 6px;
+}
+.vision-wait button {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.vision-spin {
+  animation: vision-spin 1.4s linear infinite;
+}
+@keyframes vision-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.vision-empty {
+  margin: 32px 0 42px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 38px 26px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  background: radial-gradient(
+    circle at 15% 50%,
+    var(--accent-glow),
+    transparent 50%
+  );
+}
+.vision-empty h2 {
+  font-size: 21px;
+  font-weight: 450;
+  margin: 0 0 10px;
+}
+.vision-empty p {
+  color: var(--muted);
+}
+.vision-empty > svg {
+  margin-left: auto;
+  color: var(--graph-muted);
+  flex: none;
+}
+.vision-empty-axis {
+  display: flex;
+  align-items: center;
+}
+.vision-empty-axis span {
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--graph-muted);
+  transform: rotate(45deg);
+}
+.vision-empty-axis i {
+  width: 32px;
+  height: 1px;
+  background: var(--line);
+}
+.vision-empty-axis .vision-empty-goal {
+  border-color: var(--accent);
+}
+.vision-result {
+  margin-top: 36px;
+}
+.vision-result-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.vision-result-heading h2 {
+  font-size: 26px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.vision-result-heading button {
+  white-space: nowrap;
+}
+.vision-grounding {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 20px 0 10px;
+}
+.vision-hypothesis {
+  color: var(--warning);
+  border-left: 2px solid var(--warning);
+  padding-left: 10px;
+  font-size: 12px;
+}
+.vision-grounding p {
+  font-size: 11px;
+  color: var(--muted);
+}
+.vision-interpretation {
+  max-width: 1000px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.vision-route-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 24px 0 0;
+  flex-wrap: wrap;
+}
+.vision-route-tabs button {
+  padding: 12px 16px;
+  max-width: 100%;
+  text-align: left;
+}
+.vision-route-tabs button > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.vision-route-tabs button[aria-pressed="true"] {
+  background: var(--selected-bg);
+  border-color: var(--accent);
+  color: var(--link);
+}
+.vision-route-summary {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 30px;
+  margin: 0 0 18px;
+  padding: 22px 0;
+}
+.vision-route-summary strong {
+  font-size: 14px;
+}
+.vision-route-summary p {
+  color: var(--text-secondary);
+  margin-top: 8px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.vision-tradeoff {
+  border-left: 1px solid var(--line);
+  padding-left: 24px;
+}
+.vision-tradeoff > span {
+  font-size: 11px;
+  color: var(--warning);
+}
+.vision-map {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--input-bg);
+}
+.vision-map-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--header-bg);
+}
+.vision-map-direction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.vision-live-dot {
+  height: 6px;
+  width: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.vision-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.vision-zoom button {
+  background: transparent;
+  border-color: transparent;
+  min-height: 32px;
+  padding: 5px 8px;
+}
+.vision-zoom output {
+  width: 42px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.vision-map-viewport {
+  width: 100%;
+  height: clamp(320px, 55vh, 600px);
+  overscroll-behavior: contain;
+}
+.vision-map .react-flow {
+  background: var(--input-bg);
+}
+.vision-map .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+.vision-map .react-flow__attribution {
+  background: var(--panel);
+}
+.vision-map .react-flow__attribution a {
+  color: var(--text-secondary);
+}
+.vision-route-edge.is-active .react-flow__edge-path {
+  stroke-dasharray: 7 4;
+}
+.vision-node {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  text-align: left;
+  padding: 13px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  box-shadow: 0 4px 14px #0003;
+  border-radius: var(--radius);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.vision-node.is-active {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+}
+.vision-node:hover {
+  border-color: var(--accent-bright);
+  background: var(--hover-bg);
+}
+.vision-node:focus-visible {
+  outline-offset: 4px;
+}
+.vision-node.is-selected {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.vision-node-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 10px;
+}
+.vision-shared {
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+.vision-node strong {
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--text);
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.vision-node-actors {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vision-node-actors svg {
+  flex: none;
+}
+.vision-goal {
+  width: 100%;
+  border-left: 2px solid var(--warning);
+  padding: 12px 14px;
+  background: var(--selected-bg);
+  border-radius: 3px;
+  height: 126px;
+  overflow: hidden;
+}
+.vision-goal > span {
+  font-size: 10px;
+  color: var(--warning);
+}
+.vision-goal strong {
+  display: block;
+  font-size: 15px;
+  margin: 8px 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vision-goal p {
+  font-size: 10px;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vision-map-caption {
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.vision-map-caption > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vision-map-caption i {
+  width: 16px;
+  height: 2px;
+  background: var(--accent);
+}
+.vision-map-caption .vision-legend-muted {
+  background: var(--graph-muted);
+  margin-left: 6px;
+}
+.vision-analysis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 28px;
+  margin: 24px 0 40px;
+}
+.vision-node-detail {
+  border-top: 2px solid var(--line-strong);
+  background: var(--panel);
+  padding: 24px;
+  min-width: 0;
+}
+.vision-detail-heading h2 {
+  font-size: 21px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.vision-actors {
+  display: flex;
+  gap: 15px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 14px 0 22px;
+  flex-wrap: wrap;
+}
+.vision-actors > span {
+  color: var(--muted);
+}
+.vision-mechanism {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+}
+.vision-mechanism h3,
+.vision-detail-section h3 {
+  font-size: 12px;
+  color: var(--accent-bright);
+  margin-bottom: 9px;
+}
+.vision-mechanism p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.vision-detail-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.vision-detail-section ul {
+  padding-left: 16px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.vision-detail-section li + li {
+  margin-top: 7px;
+}
+.vision-assumptions {
+  padding-top: 10px;
+  min-width: 0;
+}
+.vision-assumptions .vision-detail-section {
+  margin: 20px 0;
+}
+.vision-provenance {
+  border-top: 1px solid var(--line);
+  padding-top: 15px;
+  font-size: 10px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.vision-projects {
+  border-top: 1px solid var(--line);
+  padding: 22px 0;
+}
+.vision-projects-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.vision-projects h2 {
+  font-size: 14px;
+}
+.vision-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.vision-project-list {
+  display: grid;
+  gap: 8px;
+}
+.vision-project {
+  display: flex;
+  text-align: left;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+  width: 100%;
+  background: var(--panel);
+  border-color: var(--line);
+}
+.vision-project > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.vision-project strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.vision-project span {
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.vision-project time {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.vision-project > svg {
+  flex: none;
+}
+.vision-footer {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.vision-home button {
+  touch-action: manipulation;
+}
+@media (max-width: 1000px) {
+  .vision-shell-caption {
+    display: none;
+  }
+  .vision-intro-note {
+    min-width: 190px;
+  }
+  .vision-compose-grid {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 20px;
+  }
+  .vision-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+  .vision-assumptions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .vision-assumptions > .vision-eyebrow,
+  .vision-provenance {
+    grid-column: 1/-1;
+  }
+  .vision-assumptions .vision-detail-section {
+    margin: 0;
+  }
+  .vision-detail-lists {
+    grid-template-columns: 1fr 1fr;
+  }
+  .vision-generate-row {
+    flex-wrap: wrap;
+  }
+  .vision-home {
+    padding-top: 32px;
+  }
+}
+@media (max-width: 700px) {
+  .vision-shell-header {
+    height: auto;
+    min-height: 64px;
+    gap: 16px;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+  .vision-shell-brand span {
+    display: none;
+  }
+  .vision-shell-header nav {
+    margin-left: auto;
+  }
+  .vision-shell-header nav button {
+    padding: 7px;
+    font-size: 11px;
+  }
+  .vision-home {
+    padding: 28px 16px 22px;
+  }
+  .vision-intro {
+    margin-bottom: 24px;
+  }
+  .vision-intro-note {
+    display: none;
+  }
+  .vision-intro h1 {
+    letter-spacing: -1px;
+  }
+  .vision-mobile-break {
+    display: block;
+  }
+  .vision-desktop-break {
+    display: none;
+  }
+  .vision-compose-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .vision-composer {
+    padding: 18px;
+  }
+  .vision-field-heading > span {
+    display: none;
+  }
+  .vision-connection {
+    border: 1px solid var(--line);
+    padding: 18px;
+  }
+  .vision-connection form {
+    grid-template-columns: 1fr auto;
+  }
+  .vision-connection label {
+    grid-column: 1/-1;
+  }
+  .vision-privacy-note {
+    display: none;
+  }
+  .vision-empty {
+    padding: 24px 4px;
+    gap: 12px;
+  }
+  .vision-empty-axis {
+    display: none;
+  }
+  .vision-options-fields {
+    grid-template-columns: 1fr;
+  }
+  .vision-generate-row {
+    align-items: stretch;
+    gap: 12px;
+  }
+  .vision-generate-row > span {
+    width: 100%;
+  }
+  .vision-primary {
+    width: 100%;
+  }
+  .vision-result-heading {
+    align-items: flex-start;
+  }
+  .vision-result-heading h2 {
+    font-size: 21px;
+  }
+  .vision-result-heading button {
+    font-size: 11px;
+    padding: 7px;
+  }
+  .vision-route-summary {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .vision-tradeoff {
+    border-left: 2px solid var(--graph-muted);
+    padding-left: 12px;
+  }
+  .vision-map-toolbar {
+    padding: 10px;
+    flex-wrap: wrap;
+  }
+  .vision-map-direction {
+    font-size: 10px;
+  }
+  .vision-map-caption {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .vision-node-detail {
+    padding: 18px;
+  }
+  .vision-mechanism,
+  .vision-detail-lists {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .vision-assumptions {
+    grid-template-columns: 1fr;
+  }
+  .vision-project time {
+    display: none;
+  }
+  .vision-footer {
+    flex-direction: column;
+  }
+  .vision-wait {
+    flex-wrap: wrap;
+    padding: 15px;
+  }
+  .vision-wait > div {
+    min-width: 0;
+    flex: 1;
+  }
+  .vision-wait button {
+    margin-left: 36px;
+  }
+}
