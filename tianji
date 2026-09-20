@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Resolve the project without changing the caller's working directory.
+set -euo pipefail
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec uv run --quiet --project "$ROOT/backend" --locked python -m tianji_lab "$@"

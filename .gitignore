@@ -19,7 +19,9 @@ backend/.local-data/
 # Backup files
 *.backup
 
-# Runtime artifacts
+# Runtime artifacts (exact basenames also protect custom data directories)
+token
+owner.lock
 runs/
 *.sqlite3
 *.sqlite3-journal

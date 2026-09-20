@@ -11,6 +11,7 @@ import time
 import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from test_vision import draft_data
 
 
 def test_real_mcp_stdio_and_cli(tmp_path):
@@ -18,7 +19,12 @@ def test_real_mcp_stdio_and_cli(tmp_path):
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     url = f"http://127.0.0.1:{port}"
-    env = {**os.environ, "TIANJI_TOKEN": "integration-test-only"}
+    env = {
+        **os.environ,
+        "TIANJI_TOKEN": "integration-test-only",
+        "TIANJI_LOCAL_MODEL_URL": "",
+        "TIANJI_LOCAL_MODEL_NAME": "",
+    }
     server = subprocess.Popen(
         [
             sys.executable,
@@ -57,6 +63,8 @@ def test_real_mcp_stdio_and_cli(tmp_path):
                     tools = await session.list_tools()
                     names = {tool.name for tool in tools.tools}
                     assert "run_backward" in names
+                    assert {"vision_generate", "vision_save", "vision_get", "vision_list"} <= names
+                    assert {"analysis_start", "analysis_get", "analysis_list"} <= names
                     # The exogenous-disturbance schema must be published to agents, not
                     # only accepted by the browser.
                     create_schema = json.dumps(
@@ -118,6 +126,27 @@ def test_real_mcp_stdio_and_cli(tmp_path):
                         response = await session.call_tool(name, args)
                         assert not response.isError, response
                         return json.loads(response.content[0].text)["data"]
+
+                    assert await invoke("vision_list", {}) == {"items": []}
+                    assert await invoke("analysis_list", {}) == {"items": []}
+                    no_model = await session.call_tool(
+                        "analysis_start", {"request": {"vision": "教育平等"}}
+                    )
+                    assert no_model.isError
+                    assert (
+                        json.loads(no_model.content[0].text)["error"]["code"] == "analysis_disabled"
+                    )
+                    disabled = await session.call_tool("vision_generate", {"vision": "教育平等"})
+                    assert disabled.isError
+                    assert (
+                        json.loads(disabled.content[0].text)["error"]["code"] == "vision_disabled"
+                    )
+                    vision = await invoke("vision_save", {"draft": draft_data()})
+                    assert vision["draft"] == draft_data()
+                    assert await invoke("vision_get", {"id": vision["id"]}) == vision
+                    assert (await invoke("vision_list", {}))["items"][0]["id"] == vision["id"]
+                    invalid = await session.call_tool("vision_save", {"draft": {}})
+                    assert invalid.isError
 
                     observed = await invoke(
                         "observation_create",

@@ -50,7 +50,11 @@ async def run(url):
             if catalog[name]["mutating"]:
                 payload["request_id"] = str(uuid.uuid4())
             try:
-                result = await client.post(f"/api/operations/{name}", json=payload)
+                result = await client.post(
+                    f"/api/operations/{name}",
+                    json=payload,
+                    timeout={"vision_generate": 190, "actor_propose": 40}.get(name, 15),
+                )
                 body = result.json()
                 error = result.is_error or not body.get("ok", False)
                 return types.CallToolResult(
