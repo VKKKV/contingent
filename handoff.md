@@ -36,5 +36,5 @@ Known boundaries:
 - `TIANJI_RESEARCH_DNS=cloudflare` is an explicit opt-in for environments with fake-IP DNS; otherwise
   the system resolver is used and non-public answers fail closed.
 
-Run `./start.sh`; use [bounded analysis](docs/bounded-analysis.md) and
-[online research](docs/research-integration.md) for canonical details. Preserve existing user data.
+Run `./start.sh`; use [docs/README.md](docs/README.md) as the documentation index. Preserve existing
+user data.

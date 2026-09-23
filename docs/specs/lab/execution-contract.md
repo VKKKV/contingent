@@ -2,7 +2,8 @@
 
 This is the cross-layer contract for operations, validation, compatibility and lifecycle. Current
 analysis semantics are summarized in [bounded-analysis](../../bounded-analysis.md); research limits
-are in [research-integration](../../research-integration.md).
+are in [research-integration](../../research-integration.md). It is the only detailed engineering
+contract; general conventions live in `AGENTS.md`.
 
 ## Bounded analysis projects
 
