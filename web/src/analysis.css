@@ -201,6 +201,32 @@
   margin-top: 24px;
   border-top: 2px solid var(--accent);
 }
+.analysis-view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+.analysis-path-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.analysis-path-card {
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  padding: 18px;
+  overflow-wrap: anywhere;
+}
+.analysis-path-card button {
+  width: 100%;
+}
+.analysis-execution {
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
+}
 .analysis-results > section {
   padding: 24px 0;
   border-top: 1px solid var(--line);
@@ -244,6 +270,29 @@
   align-items: center;
   justify-content: center;
   padding: 10px;
+}
+.analysis-flow .analysis-node-button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: pre-line;
+  text-align: center;
+}
+.analysis-flow .analysis-node-button[aria-pressed="true"],
+.analysis-flow .analysis-node-button:hover {
+  background: transparent;
+  color: inherit;
+}
+.analysis-flow .analysis-node-button:focus-visible {
+  outline-offset: -2px;
+}
+.analysis-flow .analysis-task-contribution:not(.selected) {
+  border-color: var(--accent);
+  border-style: dashed;
 }
 .analysis-flow .analysis-node.selected {
   border: 2px solid var(--accent-bright);
@@ -317,6 +366,53 @@
   margin: 24px auto;
   padding: 0 24px;
   color: var(--muted);
+}
+.analysis-research {
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+}
+.analysis-home details {
+  min-width: 0;
+  margin: 14px 0;
+}
+.analysis-home summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.analysis-source,
+.analysis-passage {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 18px 0;
+}
+.analysis-research pre,
+.analysis-research blockquote {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.7;
+  margin: 16px 0;
+  max-height: 36rem;
+  overflow: auto;
+}
+.analysis-passage blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 14px;
+}
+.analysis-home a {
+  color: var(--accent-bright);
+  overflow-wrap: anywhere;
+}
+.analysis-citations li {
+  margin-bottom: 20px;
+}
+.analysis-research code,
+.analysis-citations code,
+.analysis-citations button {
+  overflow-wrap: anywhere;
 }
 @media (max-width: 650px) {
   .analysis-tabs {

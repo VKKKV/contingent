@@ -3,6 +3,9 @@ import type {
   AnalysisRun,
   AnalysisStatus,
   AnalysisSummary,
+  ResearchOptions,
+  ResearchPassage,
+  ResearchSource,
 } from "./analysisTypes";
 
 export type Action = "wait" | "order_standard" | "order_express";
@@ -141,7 +144,7 @@ interface JobBase {
   error: string | null;
 }
 export interface AnalysisJob extends JobBase {
-  kind: "analysis_start";
+  kind: "analysis_start" | "analysis_start_v2";
   result: null | { analysis_id: string };
 }
 export interface BranchJob extends JobBase {
@@ -205,6 +208,33 @@ export interface Capability {
   input_schema: JsonSchema;
   mutating: boolean;
 }
+export interface ResearchEvidencePage {
+  analysis_id: string;
+  schema_version: "tianji.analysis.v2";
+  kind: "sources" | "passages";
+  items: ResearchSource[] | ResearchPassage[];
+  next_cursor: string | null;
+}
+export interface ResearchFrontierItem {
+  id: string;
+  question: string;
+  parent_question: string | null;
+  goal_facet: string;
+  query: string;
+  priority: number;
+  state: "proposed" | "attempted" | "skipped" | "cancelled" | "interrupted";
+  attempts: number;
+  evidence_refs: string[];
+  stop_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface ResearchFrontierPage {
+  analysis_id: string;
+  schema_version: "tianji.analysis.v2";
+  items: ResearchFrontierItem[];
+  next_cursor: string | null;
+}
 export interface VisionRequest {
   vision: string;
   horizon: string;
@@ -267,7 +297,29 @@ export interface Operations {
     { request: VisionRequest; budget?: Partial<AnalysisBudget> },
     AnalysisJob,
   ];
+  analysis_start_v2: [
+    {
+      request: VisionRequest;
+      budget?: Partial<AnalysisBudget>;
+      research: ResearchOptions;
+    },
+    AnalysisJob,
+  ];
+  analysis_list_v2: [{}, { items: AnalysisSummary[] }];
   analysis_get: [{ id: string }, AnalysisRun];
+  research_evidence: [
+    {
+      id: string;
+      kind: "sources" | "passages";
+      after?: string;
+      limit?: number;
+    },
+    ResearchEvidencePage,
+  ];
+  research_frontier: [
+    { id: string; after?: string; limit?: number },
+    ResearchFrontierPage,
+  ];
   analysis_list: [{}, { items: AnalysisSummary[] }];
   analysis_stats: [{}, AnalysisStats];
   vision_generate: [VisionRequest, VisionDraft];

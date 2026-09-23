@@ -67,6 +67,8 @@ async def run_analysis(
     model: LocalAnalysisModel,
     save: Callable[[AnalysisRun], bool],
     cancelled: Callable[[], str | None],
+    *,
+    hooks=None,
 ) -> AnalysisRun:
     """The caller owns SQLite; callbacks are short transactions, never model IO."""
     started = time.monotonic()
@@ -83,7 +85,7 @@ async def run_analysis(
 
     def publish():
         run.duration_ms = int((time.monotonic() - started) * 1000)
-        AnalysisRun.model_validate(run.model_dump(mode="json"))
+        type(run).model_validate(run.model_dump(mode="json"))
         if not save(run):
             raise Halt(cancelled() or "cancelled", "Late result discarded")
 
@@ -118,10 +120,13 @@ async def run_analysis(
         run.calls += 1
         # Reserve the full allowed output before each attempt, including failed calls.
         run.reserved_output_tokens += cap
+        instructions, wire_type = COMMON + PROMPTS[task.role], output_type
+        if hooks:
+            instructions, context, wire_type = hooks.prepare(task, context, output_type)
         publish()
         tick = time.monotonic()
         request = asyncio.create_task(
-            model.complete(task.role, COMMON + PROMPTS[task.role], context, output_type, cap)
+            model.complete(task.role, instructions, context, wire_type, cap)
         )
         try:
             while not request.done():
@@ -129,7 +134,8 @@ async def run_analysis(
                 await asyncio.wait({request}, timeout=0.1)
             check()
             result = request.result()
-            output = output_type.model_validate(result.output.model_dump(mode="json"))
+            envelope = wire_type.model_validate(result.output.model_dump(mode="json"))
+            output = hooks.decode(task, envelope) if hooks else envelope
             if validate:
                 validate(output)
             usage = result.output_tokens
@@ -138,6 +144,8 @@ async def run_analysis(
             task.result = output
             task.output_tokens = usage
             task.status = "succeeded"
+            if hooks:
+                hooks.accepted(task, envelope)
             return output
         except (AnalysisModelError, ValueError) as exc:
             task.status = "failed"
@@ -205,6 +213,8 @@ async def run_analysis(
     if not _CALL_SLOT.acquire(blocking=False):
         run.status, run.error = "failed", "Local model is busy; start a new analysis later"
         run.finished_at = now()
+        if hooks:
+            hooks.finish()
         save(run)
         return run
     try:
@@ -223,6 +233,8 @@ async def run_analysis(
         if frame.clarification:
             run.unresolved.append(frame.clarification)
             raise Halt("partial", "Clarification required before strategy generation")
+        if hooks:
+            await hooks.after_frame(publish, check)
         strategy_tasks = []
         for i, perspective in enumerate(frame.perspectives):
             task = new_task(f"strategy_{i + 1}", "strategy", perspective, [framing.id])
@@ -347,7 +359,9 @@ async def run_analysis(
         _CALL_SLOT.release()
         run.finished_at = now()
         run.duration_ms = int((time.monotonic() - started) * 1000)
-    AnalysisRun.model_validate(run.model_dump(mode="json"))
+    if hooks:
+        hooks.finish()
+    type(run).model_validate(run.model_dump(mode="json"))
     if not save(run):
         # The durable service has already won a cancel/stop race.
         run.status = cancelled() or "cancelled"

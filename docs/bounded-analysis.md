@@ -9,6 +9,10 @@ below use the shared operation registry; the cross-layer schema is in
 `analysis_start` creates durable offline v1 projects. `analysis_start_v2` creates v2 projects, online
 by default; `analysis_list_v2` lists both versions and `analysis_get` preserves the stored version.
 Existing v1 requests and saved drafts remain offline and are never silently upgraded.
+`research_evidence` reads v2 sources or exact passages through an authenticated cursor-paginated
+operation. It is an additive read model and does not refresh or rerun research.
+`research_frontier` reads the proposed/attempted query frontier through the same authenticated
+cursor-paginated registry; it is a durable read model, not a continuation action.
 
 For v2, framing proposes bounded queries, a controlled collector searches and reads public sources,
 and later roles receive selected exact passages. Source snapshots, passage hashes/spans, task
@@ -16,6 +20,8 @@ visibility and validated citations are stored atomically with the run. Missing r
 produce a partial result even when model tasks finish. Explicit offline v2 is hypothesis-only/partial.
 Critique-triggered follow-up search and user-material attachment are not implemented.
 See [research integration](research-integration.md) for provider, DNS, privacy and byte limits.
+The service also mirrors validated v2 sources/passages into a transactionally maintained paginated
+read model; the run JSON remains the compatibility representation and source of truth for old clients.
 
 ## Operations
 

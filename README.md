@@ -41,6 +41,8 @@ analyses and deterministic HTTP/CLI/MCP operations. Do not put private informati
 
 See [bounded analysis](docs/bounded-analysis.md) for execution semantics and
 [online research](docs/research-integration.md) for source limits and privacy boundaries.
+The authenticated `research_evidence` and `research_frontier` operations expose paginated v2
+evidence/query read models; they do not refresh a project or start follow-up research.
 
 Legacy `vision_*` generation remains a single-call, explicit-save workflow. Its five-node/two-path
 shape is a presentation scaffold, not discovered causality. The former supply-chain Web page is

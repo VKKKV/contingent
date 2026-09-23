@@ -39,6 +39,7 @@ export function layoutAnalysis(nodes: AnalysisFlowNode[], edges: Edge[]) {
 export function taskGraph(run: AnalysisRun, selectedTask: string) {
   const nodes: AnalysisFlowNode[] = run.tasks.map((task) => ({
     id: task.id,
+    type: "analysis",
     position: { x: 0, y: 0 },
     selected: task.id === selectedTask,
     data: {
@@ -142,13 +143,14 @@ export function issueGraph(
     ids = new Set(visible.map((node) => node.id));
   const nodes: AnalysisFlowNode[] = visible.map((node) => ({
     id: node.id,
+    type: "analysis",
     position: { x: 0, y: 0 },
-    selected: node.id === selectedIssue || node.task_id === selectedTask,
+    selected: node.id === selectedIssue,
     data: {
       label: `${node.id} · ${node.kind}\n${node.title}`,
       taskId: node.task_id,
     },
-    className: `analysis-node ${node.kind === "objection" ? "analysis-node-objection" : ""}`,
+    className: `analysis-node ${node.kind === "objection" ? "analysis-node-objection" : ""} ${node.task_id === selectedTask ? "analysis-task-contribution" : ""}`,
     ariaLabel: `${node.id} ${node.title}，产出任务 ${node.task_id}`,
   }));
   const edges: Edge[] = run.edges.flatMap((edge, index) =>

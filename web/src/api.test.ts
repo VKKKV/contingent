@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, ApiError, schemaAt, schemaFields } from "./api";
-import type { ActionProposal, Capability, VisionRequest } from "./api";
+import type {
+  ActionProposal,
+  Capability,
+  ResearchEvidencePage,
+  ResearchFrontierPage,
+  VisionRequest,
+} from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -191,6 +197,50 @@ describe("shared analysis API transport", () => {
         "Content-Type": "application/json",
       });
     }
+  });
+  it("reads typed paginated v2 evidence without adding a mutation request ID", async () => {
+    const { api, fetch } = setup("research_evidence");
+    const page: ResearchEvidencePage = {
+      analysis_id: "run",
+      schema_version: "tianji.analysis.v2",
+      kind: "sources",
+      items: [],
+      next_cursor: null,
+    };
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, data: page })),
+    );
+    await api.catalog();
+    expect(
+      await api.op("research_evidence", {
+        id: "run",
+        kind: "sources",
+        after: "source_2",
+        limit: 2,
+      }),
+    ).toEqual(page);
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
+      arguments: { id: "run", kind: "sources", after: "source_2", limit: 2 },
+    });
+  });
+  it("reads the typed v2 frontier through the same registry", async () => {
+    const { api, fetch } = setup("research_frontier");
+    const page: ResearchFrontierPage = {
+      analysis_id: "run",
+      schema_version: "tianji.analysis.v2",
+      items: [],
+      next_cursor: null,
+    };
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, data: page })),
+    );
+    await api.catalog();
+    expect(await api.op("research_frontier", { id: "run", limit: 2 })).toEqual(
+      page,
+    );
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
+      arguments: { id: "run", limit: 2 },
+    });
   });
   it("uses server mutation metadata to assign a fresh request ID to each save", async () => {
     const { api, fetch } = setup("vision_save", true);

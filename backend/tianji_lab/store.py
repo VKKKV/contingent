@@ -67,6 +67,28 @@ class Store:
                 CREATE TABLE IF NOT EXISTS analysis (
                     id TEXT PRIMARY KEY REFERENCES jobs(id), run_json TEXT NOT NULL,
                     created_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS research_source (
+                    analysis_id TEXT NOT NULL REFERENCES analysis(id) ON DELETE CASCADE,
+                    source_id TEXT NOT NULL,
+                    source_json TEXT NOT NULL,
+                    PRIMARY KEY(analysis_id, source_id));
+                CREATE INDEX IF NOT EXISTS research_source_page
+                    ON research_source(analysis_id, source_id);
+                CREATE TABLE IF NOT EXISTS research_passage (
+                    analysis_id TEXT NOT NULL REFERENCES analysis(id) ON DELETE CASCADE,
+                    passage_id TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    passage_json TEXT NOT NULL,
+                    PRIMARY KEY(analysis_id, passage_id));
+                CREATE INDEX IF NOT EXISTS research_passage_page
+                    ON research_passage(analysis_id, passage_id);
+                CREATE TABLE IF NOT EXISTS research_frontier (
+                    analysis_id TEXT NOT NULL REFERENCES analysis(id) ON DELETE CASCADE,
+                    frontier_id TEXT NOT NULL,
+                    frontier_json TEXT NOT NULL,
+                    PRIMARY KEY(analysis_id, frontier_id));
+                CREATE INDEX IF NOT EXISTS research_frontier_page
+                    ON research_frontier(analysis_id, frontier_id);
             """)
 
     def close(self):

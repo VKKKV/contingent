@@ -740,6 +740,163 @@ describe("AnalysisSession", () => {
     expect(session.getSnapshot().run?.status).toBe("running");
   });
 
+  it("defaults to online v2, lists both versions and accepts canonical v2 readback", async () => {
+    catalog.mockResolvedValue(
+      capabilities([...names, "analysis_start_v2", "analysis_list_v2"]),
+    );
+    const v2 = { ...run(), schema_version: "tianji.analysis.v2" };
+    op.mockImplementation(async (name: string) => {
+      if (name === "analysis_list_v2") return { items: [v2, run("old")] };
+      if (name === "analysis_start_v2") return { id: "run-1", kind: name };
+      return v2;
+    });
+    await ready();
+    await session.create();
+    expect(op.mock.calls.map((call) => call[0])).toEqual([
+      "analysis_list_v2",
+      "analysis_start_v2",
+      "analysis_get",
+      "analysis_list_v2",
+    ]);
+    expect(op.mock.calls[1][1].research).toMatchObject({
+      mode: "online",
+      budget: { max_queries: 2, max_pages: 3 },
+    });
+    expect(session.getSnapshot().run?.schema_version).toBe(
+      "tianji.analysis.v2",
+    );
+    expect(session.getSnapshot().items).toHaveLength(2);
+  });
+
+  it.each(["online", "offline"] as const)(
+    "freezes %s options, operation and UUID across reload and mode edits",
+    async (mode) => {
+      catalog.mockResolvedValue(
+        capabilities([...names, "analysis_start_v2", "analysis_list_v2"]),
+      );
+      op.mockImplementation(async (name: string) => {
+        if (name.includes("list")) return { items: [] };
+        throw new TypeError("response lost");
+      });
+      await ready();
+      session.editResearch({ mode, budget: { max_queries: 3 } });
+      await session.create();
+      const first = op.mock.calls.find(
+        (call) => call[0] === "analysis_start_v2",
+      )!;
+      expect(Object.isFrozen(first[1].research)).toBe(true);
+      expect(Object.isFrozen(first[1].research.budget)).toBe(true);
+      session.editResearch({
+        mode: mode === "online" ? "offline" : "online",
+        budget: { max_queries: 1 },
+      });
+      session.edit({ vision: "must not replace" });
+      session.stop();
+      session = new AnalysisSession(
+        () => ({ catalog, op }) as unknown as Pick<Api, "catalog" | "op">,
+      );
+      session.start();
+      expect(session.getSnapshot()).toMatchObject({
+        pendingOperation: "analysis_start_v2",
+        research: { mode, budget: { max_queries: 3 } },
+      });
+      await session.connect("test-token");
+      await session.create();
+      const starts = op.mock.calls.filter(
+        (call) => call[0] === "analysis_start_v2",
+      );
+      expect(starts).toHaveLength(2);
+      expect(starts[1][1]).toEqual(first[1]);
+      expect(starts[1][3]).toBe(first[3]);
+    },
+  );
+
+  it("never upgrades an unversioned pending v1 request when v2 is available", async () => {
+    const pending = {
+      requestId: "old-key",
+      request: { ...emptyAnalysisRequest(), vision: "original" },
+    };
+    sessionStorage.setItem("tianji-analysis-create", JSON.stringify(pending));
+    session.start();
+    catalog.mockResolvedValue(
+      capabilities([...names, "analysis_start_v2", "analysis_list_v2"]),
+    );
+    op.mockImplementation(async (name: string) =>
+      name.includes("list")
+        ? { items: [] }
+        : name === "analysis_start"
+          ? { id: "old", kind: name }
+          : run("old"),
+    );
+    await session.connect("test-token");
+    session.editResearch({ mode: "online" });
+    expect(session.getSnapshot().pendingOperation).toBe("analysis_start");
+    await session.create();
+    expect(op).toHaveBeenCalledWith(
+      "analysis_start",
+      { request: pending.request },
+      expect.any(AbortSignal),
+      "old-key",
+    );
+    expect(op.mock.calls.some((call) => call[0] === "analysis_start_v2")).toBe(
+      false,
+    );
+  });
+
+  it("does not downgrade a pending v2 request on an old server", async () => {
+    const research = {
+      mode: "online",
+      budget: {
+        max_queries: 2,
+        max_pages: 3,
+        max_seconds: 90,
+        max_response_bytes: 524288,
+        max_total_bytes: 2097152,
+      },
+    };
+    sessionStorage.setItem(
+      "tianji-analysis-create",
+      JSON.stringify({
+        requestId: "v2-key",
+        request: { ...emptyAnalysisRequest(), vision: "v2" },
+        operation: "analysis_start_v2",
+        research,
+      }),
+    );
+    session.start();
+    await session.connect("test-token");
+    op.mockClear();
+    await session.create();
+    expect(op).not.toHaveBeenCalled();
+    expect(session.getSnapshot().pendingStart).toBe(true);
+    expect(session.canCreate()).toBe(false);
+  });
+
+  it.each([
+    { operation: "analysis_start_v3" },
+    { operation: "analysis_start_v2" },
+    { operation: "analysis_start", research: { mode: "online" } },
+    {
+      operation: "analysis_start_v2",
+      research: { mode: "online", budget: {} },
+    },
+  ])(
+    "rejects malformed versioned pending data without silently upgrading (%j)",
+    (extra) => {
+      sessionStorage.setItem(
+        "tianji-analysis-create",
+        JSON.stringify({
+          requestId: "key",
+          request: { ...emptyAnalysisRequest(), vision: "test" },
+          ...extra,
+        }),
+      );
+      session.start();
+      expect(session.getSnapshot().pendingStart).toBe(false);
+      expect(sessionStorage.getItem("tianji-analysis-create")).toBeNull();
+    },
+  );
+
   it("does not cancel when job_cancel is absent", async () => {
     catalog.mockResolvedValue(
       capabilities(names.filter((name) => name !== "job_cancel")),

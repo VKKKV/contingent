@@ -1,9 +1,64 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { VisionRequest } from "./api";
 import AnalysisGraph from "./AnalysisGraph";
+import ResearchPanel from "./ResearchPanel";
 import VisionHome from "./VisionHome";
 import { AnalysisSession, analysisSession, tabRead } from "./analysisSession";
-import { analysisActive, analysisStatusLabel } from "./analysisTypes";
+import {
+  analysisActive,
+  analysisStatusLabel,
+  type AnalysisRun,
+} from "./analysisTypes";
+export function AnalysisResults({ run }: { run: AnalysisRun }) {
+  const [passage, setPassage] = useState("");
+  const [view, setView] = useState<"paths" | "sources">("paths");
+  const openPassage = (id: string) => {
+    setPassage(id);
+    setView("sources");
+  };
+  return (
+    <>
+      <div
+        className="analysis-view-switch"
+        role="group"
+        aria-label="分析结果视图"
+      >
+        <button
+          type="button"
+          aria-pressed={view === "paths"}
+          onClick={() => setView("paths")}
+        >
+          世界线与路径
+        </button>
+        {run.schema_version === "tianji.analysis.v2" && (
+          <button
+            type="button"
+            aria-pressed={view === "sources"}
+            onClick={() => setView("sources")}
+          >
+            情报与引用 · {run.research.sources.length} 来源
+          </button>
+        )}
+      </div>
+      <div hidden={view !== "paths"}>
+        <AnalysisGraph run={run} onPassage={openPassage} />
+      </div>
+      {run.schema_version === "tianji.analysis.v2" ? (
+        view === "sources" && (
+          <ResearchPanel
+            run={run}
+            selectedPassage={passage}
+            onPassage={setPassage}
+          />
+        )
+      ) : (
+        <p className="analysis-warning">
+          旧版 v1 离线项目：未执行自动公开情报检索。重新读取不会升级或联网调查。
+        </p>
+      )}
+    </>
+  );
+}
 import "./analysis.css";
 
 function Workspace({ session }: { session: AnalysisSession }) {
@@ -29,7 +84,7 @@ function Workspace({ session }: { session: AnalysisSession }) {
       </header>
       <aside className="analysis-warning" role="note">
         <strong>模型假设，不是现实验证。</strong>
-        同一模型的不同任务不是独立验证，也不是多方共识。图上的关系没有经过现实因果检验；没有自动证据检索。
+        同一模型的不同任务不是独立验证，也不是多方共识。在线调查可提供可追溯来源，但不证明判断真实或图上关系具有因果效力。
       </aside>
       <form
         className="analysis-connection"
@@ -66,16 +121,16 @@ function Workspace({ session }: { session: AnalysisSession }) {
           {state.connected ? "已连接 · 令牌仅保留在当前标签页" : "未连接"}
         </span>
       </form>
-      {state.connected &&
-        !session.supports(
-          "analysis_start",
-          "analysis_get",
-          "analysis_list",
-        ) && (
-          <p role="alert">
-            当前服务未开放持久分析操作。仍可从「旧版单次结果」访问原有项目。
-          </p>
-        )}
+      {state.connected && !session.canCreate() && (
+        <p role="alert">
+          当前服务未开放持久分析操作。仍可从「旧版单次结果」访问原有项目。
+        </p>
+      )}
+      {state.connected && !session.supports("analysis_start_v2") && (
+        <p className="analysis-warning">
+          当前服务仅支持旧版离线兼容分析，不会联网检索。升级服务后才能创建在线调查。
+        </p>
+      )}
       <form
         className="analysis-editor"
         onSubmit={(e) => {
@@ -85,6 +140,89 @@ function Workspace({ session }: { session: AnalysisSession }) {
       >
         <fieldset disabled={state.busy === "creating" || state.pendingStart}>
           <legend>新分析输入</legend>
+          <label>
+            调查模式
+            <select
+              aria-label="调查模式"
+              value={
+                session.startOperation() === "analysis_start" && state.connected
+                  ? "legacy"
+                  : state.research.mode
+              }
+              disabled={
+                state.connected && session.startOperation() === "analysis_start"
+              }
+              onChange={(e) =>
+                session.editResearch({
+                  mode: e.target.value as "online" | "offline",
+                })
+              }
+            >
+              <option value="online">在线调查（默认）</option>
+              <option value="offline">离线分析（不检索公开网页）</option>
+              {state.connected &&
+                session.startOperation() === "analysis_start" && (
+                  <option value="legacy">旧版 v1 离线兼容</option>
+                )}
+            </select>
+          </label>
+          <p>只需填写目标，无需上传材料。当前版本不支持补充材料附件。</p>
+          <p className="analysis-warning">
+            在线模式会根据目标、视角和约束生成查询并发送到公开搜索服务，再访问公开网页；请勿输入私密资料。查询、搜索摘要、有界提取正文与片段、来源链接、时间及哈希随项目保存在本地，不保存网页脚本或图片。离线模式不执行这些检索。
+          </p>
+          <details>
+            <summary>调查预算</summary>
+            <p>按顺序读取少量公开来源；无登录、Cookie 或自定义网址输入。</p>
+            <div className="analysis-input-row">
+              <label>
+                最多查询数（1–3）
+                <input
+                  type="number"
+                  min={1}
+                  max={3}
+                  value={state.research.budget.max_queries}
+                  onChange={(e) =>
+                    session.editResearch({
+                      budget: { max_queries: Number(e.target.value) },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                最多网页数（1–5）
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={state.research.budget.max_pages}
+                  onChange={(e) =>
+                    session.editResearch({
+                      budget: { max_pages: Number(e.target.value) },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                调查秒数（5–180）
+                <input
+                  type="number"
+                  min={5}
+                  max={180}
+                  value={state.research.budget.max_seconds}
+                  onChange={(e) =>
+                    session.editResearch({
+                      budget: { max_seconds: Number(e.target.value) },
+                    })
+                  }
+                />
+              </label>
+            </div>
+            <p>
+              公共网页单响应上限 {state.research.budget.max_response_bytes}{" "}
+              字节；累计 {state.research.budget.max_total_bytes}{" "}
+              字节。不包含搜索服务网络流量。
+            </p>
+          </details>
           <label>
             你希望达成什么目标？
             <textarea
@@ -130,9 +268,7 @@ function Workspace({ session }: { session: AnalysisSession }) {
           className="analysis-primary"
           type="submit"
           disabled={
-            !!state.busy ||
-            !state.request.vision.trim() ||
-            !session.supports("analysis_start", "analysis_get", "analysis_list")
+            !!state.busy || !state.request.vision.trim() || !session.canCreate()
           }
         >
           {state.busy === "creating"
@@ -143,7 +279,9 @@ function Workspace({ session }: { session: AnalysisSession }) {
         </button>
         {state.pendingStart && (
           <p>
-            上次创建请求待确认；保留原输入和幂等标识，重试不会另建项目。可先刷新下方列表核对。
+            上次创建请求待确认；原输入、操作版本、调查模式、预算和幂等标识均已锁定，重试不会另建项目或切换联网方式。可先刷新下方列表核对。
+            {state.pendingOperation === "analysis_start" &&
+              " 此请求为旧版 v1 离线请求，绝不会自动升级为在线调查。"}
           </p>
         )}
       </form>
@@ -158,7 +296,9 @@ function Workspace({ session }: { session: AnalysisSession }) {
           <h2>持久分析项目</h2>
           <button
             type="button"
-            disabled={!session.supports("analysis_list") || state.listBusy}
+            disabled={
+              !session.supports(session.listOperation()) || state.listBusy
+            }
             onClick={() => void session.reload()}
           >
             {state.listBusy ? "读取中…" : "刷新项目列表"}
@@ -247,7 +387,7 @@ function Workspace({ session }: { session: AnalysisSession }) {
             </p>
             {run.status === "partial" && (
               <p className="analysis-warning">
-                部分结果：有任务未成功完成。保留已校验的任务产出，不代表完整分析。
+                部分结果：任务、调查或引用依据存在缺口。保留已校验的任务产出，不代表完整分析。
               </p>
             )}
             {run.error && (
@@ -272,7 +412,7 @@ function Workspace({ session }: { session: AnalysisSession }) {
               </section>
             )}
           </header>
-          <AnalysisGraph key={run.id} run={run} />
+          <AnalysisResults key={run.id} run={run} />
         </article>
       )}
     </main>

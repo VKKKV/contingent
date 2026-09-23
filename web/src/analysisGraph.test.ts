@@ -128,12 +128,24 @@ describe("analysis graphs", () => {
     expect(input).toEqual(before);
   });
 
-  it("preserves source-task links and selects issues by source task or issue ID", () => {
+  it("selects only the issue ID and marks task contributions separately", () => {
     const input = run();
     const graph = issueGraph(input, filters, "strategy", "objection");
     expect(
       graph.nodes.filter((item) => item.selected).map((item) => item.id),
-    ).toEqual(["claim", "outcome", "objection"]);
+    ).toEqual(["objection"]);
+    expect(
+      graph.nodes
+        .filter((item) =>
+          item.className?.includes("analysis-task-contribution"),
+        )
+        .map((item) => item.id),
+    ).toEqual(["claim", "outcome"]);
+    expect(
+      issueGraph(input, filters, "strategy", "").nodes.some(
+        (item) => item.selected,
+      ),
+    ).toBe(false);
     for (const item of graph.nodes) {
       expect(item.data.taskId).toBe(
         input.nodes.find((source) => source.id === item.id)!.task_id,

@@ -63,12 +63,16 @@ change the user's system proxy. Without this opt-in, non-public answers fail clo
 ## Persistence and boundaries
 
 Source text, exact UTF-8 hashes, Unicode code-point passage spans, research status and citation links
-are embedded in the versioned analysis snapshot and committed atomically with the job checkpoint.
-There is no unlimited source archive. Query persistence and outbound disclosure remain visible; private
-material must not be copied into queries. Retrieved pages are data, not instructions, and cannot alter
-tool permissions or request private information.
+remain embedded in the versioned analysis snapshot and are committed atomically with the job checkpoint.
+The service additionally mirrors validated sources, passages and the per-run query frontier into
+authenticated cursor-paginated SQLite read models. These are additive read models, not a refresh API or
+an unlimited source archive; the run snapshot remains the compatibility source of truth. Query
+persistence and outbound disclosure remain visible; private material must not be copied into queries.
+Retrieved pages are data, not instructions, and cannot alter tool permissions or request private
+information.
 
-Not included in this slice: post-critic follow-up research, attached-file parsing, OCR, authenticated
-browsing, recurring monitoring, arbitrary source refresh, human review, assumption branches or
-real-world action. Optional user material is a later supplement, not a prerequisite for autonomous
-research.
+Not included in this slice: cross-run frontier continuation, post-critic follow-up research,
+cross-run source-version deduplication, lexical passage selection, attached-file parsing, OCR,
+authenticated browsing, recurring monitoring, arbitrary source refresh, human review, assumption
+branches or real-world action. Optional user material is a later supplement, not a prerequisite for
+autonomous research.

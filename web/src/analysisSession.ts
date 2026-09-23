@@ -2,6 +2,9 @@ import { QueryClient, QueryObserver } from "@tanstack/query-core";
 import { Api, ApiError, type Capability, type VisionRequest } from "./api";
 import {
   analysisActive,
+  defaultResearchOptions,
+  type ResearchOptions,
+  type ResearchBudget,
   type AnalysisRun,
   type AnalysisSummary,
 } from "./analysisTypes";
@@ -31,11 +34,54 @@ export function tabWrite(key: string, value: string) {
   }
 }
 type Client = Pick<Api, "catalog" | "op">;
-type Pending = { request: VisionRequest; requestId: string };
+type StartOperation = "analysis_start" | "analysis_start_v2";
+type Pending = { request: VisionRequest; requestId: string } & (
+  | { operation?: "analysis_start"; research?: never }
+  | { operation: "analysis_start_v2"; research: ResearchOptions }
+);
+const researchBounds: Record<keyof ResearchBudget, [number, number]> = {
+  max_queries: [1, 3],
+  max_pages: [1, 5],
+  max_seconds: [5, 180],
+  max_response_bytes: [1024, 1048576],
+  max_total_bytes: [1024, 5242880],
+};
+function isResearch(value: unknown): value is ResearchOptions {
+  if (!value || typeof value !== "object") return false;
+  const { mode, budget } = value as Partial<ResearchOptions>;
+  return (
+    (mode === "online" || mode === "offline") &&
+    !!budget &&
+    Object.keys(value).every((key) => key === "mode" || key === "budget") &&
+    Object.keys(budget).length === Object.keys(researchBounds).length &&
+    Object.entries(researchBounds).every(([key, [min, max]]) => {
+      const n = budget[key as keyof ResearchBudget];
+      return Number.isInteger(n) && n >= min && n <= max;
+    })
+  );
+}
+function frozenResearch(value: ResearchOptions): ResearchOptions {
+  return Object.freeze({
+    mode: value.mode,
+    budget: Object.freeze({ ...value.budget }),
+  });
+}
+function freezePending(value: Pending): Pending {
+  return Object.freeze({
+    ...value,
+    request: Object.freeze({ ...value.request }),
+    ...(value.operation === "analysis_start_v2"
+      ? { research: frozenResearch(value.research) }
+      : {}),
+  }) as Pending;
+}
 function isPending(value: unknown): value is Pending {
   if (!value || typeof value !== "object") return false;
-  const { requestId, request } = value as Partial<Pending>;
+  const { requestId, request, operation, research } = value as Partial<Pending>;
   return (
+    (operation === undefined || operation === "analysis_start"
+      ? research === undefined
+      : operation === "analysis_start_v2" && isResearch(research)) &&
     typeof requestId === "string" &&
     !!requestId.trim() &&
     requestId.length <= 128 &&
@@ -49,6 +95,8 @@ function isPending(value: unknown): value is Pending {
 }
 interface Snapshot {
   request: VisionRequest;
+  research: ResearchOptions;
+  pendingOperation: StartOperation | null;
   connected: boolean;
   catalog: Capability[];
   selectedId: string;
@@ -65,6 +113,8 @@ interface Snapshot {
 export class AnalysisSession {
   private state: Snapshot = {
     request: emptyAnalysisRequest(),
+    research: frozenResearch(defaultResearchOptions()),
+    pendingOperation: null,
     connected: false,
     catalog: [],
     selectedId: "",
@@ -126,7 +176,7 @@ export class AnalysisSession {
     if (!this.pending) {
       try {
         const value: unknown = JSON.parse(tabRead(PENDING_KEY) || "null");
-        if (isPending(value)) this.pending = value;
+        if (isPending(value)) this.pending = freezePending(value);
         else tabWrite(PENDING_KEY, "");
       } catch {
         tabWrite(PENDING_KEY, "");
@@ -135,7 +185,17 @@ export class AnalysisSession {
     this.update({
       selectedId: tabRead(ANALYSIS_SELECTION_KEY) || this.state.selectedId,
       pendingStart: !!this.pending,
-      ...(this.pending ? { request: this.pending.request } : {}),
+      pendingOperation: this.pending
+        ? (this.pending.operation ?? "analysis_start")
+        : null,
+      ...(this.pending
+        ? {
+            request: this.pending.request,
+            ...(this.pending.operation === "analysis_start_v2"
+              ? { research: this.pending.research }
+              : {}),
+          }
+        : {}),
     });
   }
   stop() {
@@ -194,6 +254,41 @@ export class AnalysisSession {
     if (!this.pending && this.state.busy !== "creating")
       this.update({ request: { ...this.state.request, ...patch } });
   }
+  editResearch(patch: {
+    mode?: ResearchOptions["mode"];
+    budget?: Partial<ResearchBudget>;
+  }) {
+    if (this.pending || this.state.busy === "creating") return;
+    const research = {
+      ...this.state.research,
+      ...patch,
+      budget: { ...this.state.research.budget, ...patch.budget },
+    };
+    if (isResearch(research))
+      this.update({ research: frozenResearch(research) });
+  }
+  startOperation(): StartOperation {
+    return (
+      this.pending?.operation ??
+      (this.pending
+        ? "analysis_start"
+        : this.supports("analysis_start_v2")
+          ? "analysis_start_v2"
+          : "analysis_start")
+    );
+  }
+  listOperation() {
+    return this.supports("analysis_list_v2")
+      ? "analysis_list_v2"
+      : "analysis_list";
+  }
+  canCreate() {
+    return this.supports(
+      this.startOperation(),
+      "analysis_get",
+      this.listOperation(),
+    );
+  }
   async connect(token: string) {
     this.disconnect();
     if (!this.active || !token.trim()) return;
@@ -226,14 +321,15 @@ export class AnalysisSession {
     ]);
   }
   async reload(cancelRefetch = false) {
-    if (!this.active || !this.client || !this.supports("analysis_list")) return;
+    if (!this.active || !this.client || !this.supports(this.listOperation()))
+      return;
     if (!this.listObserver) {
       const client = this.client;
       this.listObserver = new QueryObserver<{ items: AnalysisSummary[] }>(
         this.queries,
         {
           queryKey: ["list"],
-          queryFn: ({ signal }) => client.op("analysis_list", {}, signal),
+          queryFn: ({ signal }) => client.op(this.listOperation(), {}, signal),
           enabled: false,
         },
       );
@@ -286,7 +382,12 @@ export class AnalysisSession {
         queryKey: ["run", id],
         queryFn: async ({ signal }) => {
           const run = await client.op("analysis_get", { id }, signal);
-          if (run.id !== id || run.schema_version !== "tianji.analysis.v1")
+          if (
+            run.id !== id ||
+            !["tianji.analysis.v1", "tianji.analysis.v2"].includes(
+              run.schema_version,
+            )
+          )
             throw new Error("分析读回标识或版本不一致，请刷新。");
           return run;
         },
@@ -315,6 +416,7 @@ export class AnalysisSession {
               item.id === run.id
                 ? {
                     id: run.id,
+                    schema_version: run.schema_version,
                     request: run.request,
                     status: run.status,
                     created_at: run.created_at,
@@ -332,7 +434,7 @@ export class AnalysisSession {
       !this.active ||
       !this.client ||
       this.state.busy ||
-      !this.supports("analysis_start", "analysis_get", "analysis_list") ||
+      !this.canCreate() ||
       !this.state.request.vision.trim()
     )
       return;
@@ -341,7 +443,8 @@ export class AnalysisSession {
       selection = this.selection,
       controller = new AbortController();
     this.mutationController = controller;
-    this.pending ??= {
+    const operation = this.startOperation();
+    this.pending ??= freezePending({
       request: {
         ...this.state.request,
         vision: this.state.request.vision.trim(),
@@ -350,18 +453,28 @@ export class AnalysisSession {
           this.state.request.perspective.trim() || "公共利益与可协作的行动者",
       },
       requestId: crypto.randomUUID(),
-    };
+      ...(operation === "analysis_start_v2"
+        ? { operation, research: this.state.research }
+        : { operation }),
+    });
     tabWrite(PENDING_KEY, JSON.stringify(this.pending));
     this.update({
       busy: "creating",
       pendingStart: true,
+      pendingOperation: operation,
       error: "",
       notice: "",
     });
     try {
+      const pending = this.pending;
       const job = await this.client.op(
-        "analysis_start",
-        { request: this.pending.request },
+        operation,
+        {
+          request: pending.request,
+          ...(pending.operation === "analysis_start_v2"
+            ? { research: pending.research }
+            : {}),
+        },
         controller.signal,
         this.pending.requestId,
       );
@@ -369,7 +482,7 @@ export class AnalysisSession {
       // A successful envelope can still contain a malformed job. Do not discard
       // the retry intent until it identifies the durable project we can read back.
       if (
-        job?.kind !== "analysis_start" ||
+        job?.kind !== operation ||
         typeof job.id !== "string" ||
         !job.id.trim()
       )
@@ -379,6 +492,7 @@ export class AnalysisSession {
       tabWrite(ANALYSIS_SELECTION_KEY, job.id);
       this.update({
         pendingStart: false,
+        pendingOperation: null,
         selectedId: job.id,
         run: null,
         busy: "loading",
@@ -406,6 +520,7 @@ export class AnalysisSession {
       this.update({
         busy: null,
         pendingStart: !!this.pending,
+        pendingOperation: this.pending ? operation : null,
         error: rejected
           ? this.message(error)
           : `${this.message(error)} 创建可能已提交；刷新列表核对，或用同一请求安全重试。`,

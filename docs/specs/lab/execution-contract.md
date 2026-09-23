@@ -9,6 +9,11 @@ are in [research-integration](../../research-integration.md).
 `analysis_start` is an idempotent mutation accepting `request: VisionRequest` and optional bounded
 `budget`. It explicitly persists a `tianji.analysis.v1` project and returns a queued `analysis`
 job. `analysis_get` reads a current project by ID; `analysis_list` discovers project summaries.
+`analysis_start_v2` creates the bounded online/offline v2 variant; `analysis_list_v2` lists both
+versions. `research_evidence` reads a v2 project's `sources` or `passages` using a stable exclusive
+cursor (`after`) and bounded `limit`; it never performs network or model work.
+`research_frontier` reads the v2 project's bounded query frontier with the same exclusive cursor and
+limit; it never schedules follow-up work or performs network/model calls.
 `job_get` and `job_cancel` share the existing authenticated registry. Analysis results have their
 own task/issue schema and never pass through supply-chain branch validation. The Web's new project
 action is distinct from the legacy ephemeral Generate action.

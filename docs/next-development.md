@@ -2,16 +2,20 @@
 
 This document is a roadmap, not a second current-state reference. The bounded v2 search/fetch/citation
 slice is implemented; details and limits live in [research-integration.md](research-integration.md).
-The remaining roadmap is follow-up research, review and branching, portable packages, and interaction
-improvements. Keep the existing FastAPI, SQLite, PydanticAI, React Flow/Dagre, Query core and operation
-registry; do not introduce another runner or research platform without a concrete need.
+The first evidence read model and per-run query frontier are implemented. The remaining roadmap is
+continuation research, review and branching, portable packages, and interaction improvements. Keep the
+existing FastAPI, SQLite, PydanticAI, React Flow/Dagre, Query core and operation registry; do not
+introduce another runner or research platform without a concrete need.
 
-## 1. Follow-up research and coverage
+## 1. Next slice: explicit continuation research
 
-Persist a research frontier separate from the bounded run snapshot: question, parent question, goal
-facet, query, priority, state, attempts and evidence references. Add source versions/passages with
-stable IDs and authenticated pagination; retain old v1/v2 references. Select passages by relevance
-across full retained documents, initially with lexical/SQLite facilities rather than a vector service.
+The current slice projects framing queries into an additive, authenticated, cursor-paginated frontier
+read model and mirrors v2 sources/passages into paginated tables. It deliberately keeps the run JSON as
+the compatibility source of truth; old v1/v2 projects remain readable. The next slice must turn this
+projection into a durable continuation model: preserve question, parent question, goal facet, query,
+priority, state, attempts and evidence references across explicit continuation runs, then add source
+versions/passages with stable cross-run IDs. Select passages by relevance across full retained documents,
+initially with lexical/SQLite facilities rather than a vector service.
 
 Alternate search, source reading and gap assessment. Critique may request primary evidence, newer
 information, counterevidence or missing actor/resource/mechanism/time/geography coverage. Stop with an
@@ -19,7 +23,8 @@ explicit reason—budget/storage/time exhaustion, cancellation, access/provider 
 new evidence—and expose remaining gaps. Reopening remains read-only; continuation is an explicit
 new action with a new budget.
 
-Acceptance: later-document passages can be selected; a useful additional query/source is handled;
+Acceptance for the next slice: a later-document passage can be selected; a useful additional query/source
+is handled;
 critique causes a real additional search; reposts are not independent support; empty/all-failed/no-new-
 evidence runs terminate honestly; cancellation and recovery do not duplicate evidence; old projects
 retain their references.

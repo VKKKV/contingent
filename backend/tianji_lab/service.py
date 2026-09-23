@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import multiprocessing
+import re
 import threading
 import time
 import uuid
@@ -16,6 +17,7 @@ from . import kernel
 from .analysis import AnalysisRun, AnalysisStart
 from .analysis_model import LocalAnalysisModel
 from .analysis_runner import run_analysis
+from .analysis_v2 import AnalysisRunV2, AnalysisStartV2, parse_analysis, run_analysis_v2
 from .local_actor import LocalActor, LocalActorError, PublicRules, validate_origin
 from .models import (
     RULE_VERSION_V1,
@@ -35,6 +37,7 @@ from .offline_adjudication import (
     adjudicate,
     observe_envelope,
 )
+from .research_types import Passage, ResearchFrontierItem, Source
 from .store import Store, canonical
 from .vision import (
     LocalVision,
@@ -68,6 +71,17 @@ class Empty(Input):
 
 class ById(Input):
     id: Identifier
+
+
+class ResearchEvidence(ById):
+    kind: Literal["sources", "passages"]
+    after: Annotated[str, Field(max_length=100, pattern=r"^[A-Za-z0-9_-]*$")] = ""
+    limit: Annotated[int, Field(ge=1, le=50)] = 20
+
+
+class ResearchFrontier(ById):
+    after: Annotated[str, Field(max_length=100, pattern=r"^[A-Za-z0-9_-]*$")] = ""
+    limit: Annotated[int, Field(ge=1, le=50)] = 20
 
 
 class ScenarioCreate(Input):
@@ -175,6 +189,18 @@ class Branch(Input):
 
 # Each schema is the authoritative input schema, including MCP tools/list.
 OPERATIONS = {
+    "analysis_start_v2": (
+        AnalysisStartV2,
+        True,
+        "Create a research-backed project. Online by default: sends bounded public queries "
+        "and persists extracted source snapshots and validated citations. "
+        "Explicit offline mode available.",
+    ),
+    "analysis_list_v2": (
+        Empty,
+        False,
+        "List both analysis versions with schema_version, newest first (at most 100).",
+    ),
     "analysis_start": (
         AnalysisStart,
         True,
@@ -182,6 +208,16 @@ OPERATIONS = {
         "request, task states and validated structured results; never raw model transcripts.",
     ),
     "analysis_get": (ById, False, "Read a durable analysis project and its task results."),
+    "research_evidence": (
+        ResearchEvidence,
+        False,
+        "Read paginated, authenticated source snapshots or exact passages for a v2 analysis.",
+    ),
+    "research_frontier": (
+        ResearchFrontier,
+        False,
+        "Read the durable, paginated question/query frontier for a v2 analysis.",
+    ),
     "analysis_list": (Empty, False, "List saved analysis projects, newest first (at most 100)."),
     "vision_generate": (
         VisionRequest,
@@ -315,13 +351,22 @@ class Service:
                 db.execute(
                     "INSERT INTO scenario VALUES(?,?,?)", (uid(), 1, canonical(spec.model_dump()))
                 )
+            # The first v2 implementation embedded evidence in run_json. Populate
+            # the paginated read model on upgrade without rewriting those snapshots.
+            for row in db.execute("SELECT id,run_json FROM analysis").fetchall():
+                try:
+                    run = parse_analysis(row["run_json"])
+                except (ValidationError, TypeError, ValueError, json.JSONDecodeError):
+                    continue
+                if isinstance(run, AnalysisRunV2) and run.id == row["id"]:
+                    self._sync_research_evidence(db, run)
             # Never replay model work after a process restart. Only untouched queued
             # projects may resume; recovery happens after acquiring directory ownership.
             for row in db.execute(
                 "SELECT jobs.status,analysis.run_json FROM jobs JOIN analysis "
                 "ON jobs.id=analysis.id WHERE jobs.status IN ('queued','running')"
             ).fetchall():
-                run = AnalysisRun.model_validate_json(row["run_json"])
+                run = parse_analysis(row["run_json"])
                 if (
                     row["status"] == "running"
                     or run.status != "queued"
@@ -329,6 +374,7 @@ class Service:
                         task.status != "queued" or task.started_at is not None for task in run.tasks
                     )
                     or run.calls
+                    or (isinstance(run, AnalysisRunV2) and run.research.status != "not_started")
                 ):
                     run = self._stop_analysis(
                         run, "interrupted", "Worker restarted during analysis"
@@ -445,7 +491,7 @@ class Service:
         }
 
     def _analysis(self, db, id):
-        run = AnalysisRun.model_validate_json(self._row(db, "analysis", id)["run_json"])
+        run = parse_analysis(self._row(db, "analysis", id)["run_json"])
         if run.id != id:
             raise ValueError("Analysis identity mismatch")
         return run
@@ -454,8 +500,149 @@ class Service:
     def _write_analysis(db, run):
         # Validate serialized data, not an already constructed/mutated model instance.
         data = canonical(run.model_dump(mode="json"))
-        AnalysisRun.model_validate_json(data)
+        parse_analysis(data)
         db.execute("UPDATE analysis SET run_json=? WHERE id=?", (data, run.id))
+        if isinstance(run, AnalysisRunV2):
+            Service._sync_research_evidence(db, run)
+            Service._sync_research_frontier(db, run)
+
+    @staticmethod
+    def _sync_research_evidence(db, run):
+        """Mirror validated v2 evidence into the stable paginated read model.
+
+        The run snapshot remains the compatibility source for old clients. This
+        table is rebuilt in the same transaction so a page can never expose a
+        source or passage that its current snapshot does not contain.
+        """
+        db.execute("DELETE FROM research_passage WHERE analysis_id=?", (run.id,))
+        db.execute("DELETE FROM research_source WHERE analysis_id=?", (run.id,))
+        for source in run.research.sources:
+            db.execute(
+                "INSERT INTO research_source VALUES(?,?,?)",
+                (
+                    run.id,
+                    source.id,
+                    canonical(source.model_dump(mode="json")),
+                ),
+            )
+        for passage in run.research.passages:
+            db.execute(
+                "INSERT INTO research_passage VALUES(?,?,?,?)",
+                (
+                    run.id,
+                    passage.id,
+                    passage.source_id,
+                    canonical(passage.model_dump(mode="json")),
+                ),
+            )
+
+    @staticmethod
+    def _sync_research_frontier(db, run):
+        """Project proposed queries into a durable, inspectable frontier."""
+        attempted = {query.casefold() for query in run.research.queries}
+        terminal = run.research.status in {
+            "succeeded",
+            "partial",
+            "failed",
+            "skipped",
+            "cancelled",
+            "interrupted",
+        }
+        db.execute("DELETE FROM research_frontier WHERE analysis_id=?", (run.id,))
+        for index, query in enumerate(run.search_queries, 1):
+            normalized = query.casefold()
+            if normalized in attempted:
+                state, attempts, reason = "attempted", 1, None
+            elif run.research.status in ("cancelled", "interrupted"):
+                state, attempts, reason = run.research.status, 0, run.error or run.research.status
+            elif terminal:
+                state, attempts, reason = (
+                    "skipped",
+                    0,
+                    (run.research.errors[0] if run.research.errors else run.research.status),
+                )
+            else:
+                state, attempts, reason = "proposed", 0, None
+            updated_at = run.research.finished_at or run.finished_at or run.created_at
+            item = ResearchFrontierItem(
+                id=f"frontier_{index}",
+                question=run.request.vision,
+                parent_question=None,
+                goal_facet=run.request.perspective,
+                query=query,
+                priority=index,
+                state=state,
+                attempts=attempts,
+                evidence_refs=[],
+                stop_reason=reason,
+                created_at=run.created_at,
+                updated_at=updated_at,
+            )
+            db.execute(
+                "INSERT INTO research_frontier VALUES(?,?,?)",
+                (run.id, item.id, canonical(item.model_dump(mode="json"))),
+            )
+
+    def _research_evidence(self, db, request):
+        run = self._analysis(db, request.id)
+        if not isinstance(run, AnalysisRunV2):
+            raise OperationError(
+                "unsupported", "Research evidence is available only for v2 analyses", 409
+            )
+        table, key, model = {
+            "sources": ("research_source", "source_id", Source),
+            "passages": ("research_passage", "passage_id", Passage),
+        }[request.kind]
+        if request.after:
+            valid_cursor = {
+                "sources": r"source_[1-5]",
+                "passages": r"source_[1-5]_p[1-3]",
+            }[request.kind]
+            if not re.fullmatch(valid_cursor, request.after):
+                raise OperationError("validation", "Cursor does not match evidence kind")
+        payload_key = "source_json" if request.kind == "sources" else "passage_json"
+        rows = db.execute(
+            f"SELECT {key},{payload_key} AS payload "
+            f"FROM {table} WHERE analysis_id=? AND {key}>? ORDER BY {key} LIMIT ?",
+            (request.id, request.after, request.limit + 1),
+        ).fetchall()
+        has_more = len(rows) > request.limit
+        items = [
+            model.model_validate_json(row["payload"]).model_dump(mode="json")
+            for row in rows[: request.limit]
+        ]
+        return {
+            "analysis_id": request.id,
+            "schema_version": run.schema_version,
+            "kind": request.kind,
+            "items": items,
+            "next_cursor": items[-1]["id"] if has_more else None,
+        }
+
+    def _research_frontier(self, db, request):
+        run = self._analysis(db, request.id)
+        if not isinstance(run, AnalysisRunV2):
+            raise OperationError(
+                "unsupported", "Research frontier is available only for v2 analyses", 409
+            )
+        if request.after and not re.fullmatch(r"frontier_[1-3]", request.after):
+            raise OperationError("validation", "Cursor does not match frontier")
+        rows = db.execute(
+            "SELECT frontier_id,frontier_json FROM research_frontier "
+            "WHERE analysis_id=? AND frontier_id>? ORDER BY frontier_id LIMIT ?",
+            (request.id, request.after, request.limit + 1),
+        ).fetchall()
+        has_more = len(rows) > request.limit
+        items = [
+            ResearchFrontierItem.model_validate_json(row["frontier_json"]).model_dump(mode="json")
+            for row in rows[: request.limit]
+        ]
+        return {
+            "analysis_id": request.id,
+            "schema_version": run.schema_version,
+            "items": items,
+            "next_cursor": items[-1]["id"] if has_more else None,
+        }
 
     @staticmethod
     def _finish_analysis(db, run):
@@ -491,7 +678,12 @@ class Service:
         # There is no persisted run start timestamp. The earliest explicit task
         # start bounds execution time; created_at would incorrectly include queueing.
         data["duration_ms"] = max(data["duration_ms"], *elapsed) if elapsed else data["duration_ms"]
-        return AnalysisRun.model_validate(data)
+        if isinstance(run, AnalysisRunV2) and data["research"]["status"] in (
+            "not_started",
+            "running",
+        ):
+            data["research"].update(status=status, finished_at=timestamp)
+        return parse_analysis(data)
 
     @staticmethod
     def _queue_capacity(db):
@@ -619,7 +811,7 @@ class Service:
             raise OperationError("record_limit", f"At most 100 {table} records per branch", 409)
 
     def _dispatch(self, db, name, a):
-        if name == "analysis_start":
+        if name in ("analysis_start", "analysis_start_v2"):
             # Configuration validation only: enqueue must never contact the provider.
             if not self.local_analysis.url or not self.local_analysis.model:
                 raise OperationError("analysis_disabled", "Local analysis is not configured", 503)
@@ -638,7 +830,11 @@ class Service:
             if db.execute("SELECT count(*) FROM analysis").fetchone()[0] >= 100:
                 raise OperationError("record_limit", "At most 100 saved analysis projects", 409)
             self._queue_capacity(db)
-            run = AnalysisRun(id=uid(), request=a.request, budget=a.budget, created_at=now())
+            run_type = AnalysisRunV2 if name == "analysis_start_v2" else AnalysisRun
+            options = {"research_options": a.research} if name == "analysis_start_v2" else {}
+            run = run_type(
+                id=uid(), request=a.request, budget=a.budget, created_at=now(), **options
+            )
             db.execute(
                 "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
                 (run.id, name, "queued", canonical({"analysis_id": run.id}), run.created_at),
@@ -650,7 +846,11 @@ class Service:
             return self._job(db, run.id)
         if name == "analysis_get":
             return self._analysis(db, a.id).model_dump(mode="json")
-        if name == "analysis_list":
+        if name == "research_evidence":
+            return self._research_evidence(db, a)
+        if name == "research_frontier":
+            return self._research_frontier(db, a)
+        if name in ("analysis_list", "analysis_list_v2"):
             return {
                 "items": [
                     {
@@ -658,11 +858,17 @@ class Service:
                         "status": run.status,
                         "created_at": run.created_at,
                         "request": run.request.model_dump(mode="json"),
+                        **(
+                            {"schema_version": run.schema_version}
+                            if name == "analysis_list_v2"
+                            else {}
+                        ),
                     }
                     for row in db.execute(
                         "SELECT run_json FROM analysis ORDER BY rowid DESC LIMIT 100"
                     )
-                    for run in [AnalysisRun.model_validate_json(row[0])]
+                    for run in [parse_analysis(row[0])]
+                    if name == "analysis_list_v2" or run.schema_version == "tianji.analysis.v1"
                 ]
             }
         if name == "vision_save":
@@ -692,9 +898,20 @@ class Service:
                 "architecture": "single_model_single_call",
             }
             runs = [
-                AnalysisRun.model_validate_json(row[0])
+                parse_analysis(row[0])
                 for row in db.execute("SELECT run_json FROM analysis ORDER BY rowid LIMIT 100")
             ]
+            research_runs = [run for run in runs if isinstance(run, AnalysisRunV2)]
+            runs = [run for run in runs if not isinstance(run, AnalysisRunV2)]
+            if research_runs:
+                result.update(
+                    research_runs=len(research_runs),
+                    research_tasks=sum(len(run.tasks) for run in research_runs),
+                    research_nodes=sum(len(run.nodes) for run in research_runs),
+                    research_candidates=sum(len(run.candidates) for run in research_runs),
+                    research_sources=sum(len(run.research.sources) for run in research_runs),
+                    research_citations=sum(len(run.citations) for run in research_runs),
+                )
             if runs:
                 result.update(
                     multi_agent_runs=len(runs),
@@ -903,7 +1120,10 @@ class Service:
             return self._job(db, a.id)
         if name == "job_cancel":
             row = self._row(db, "jobs", a.id)
-            if row["kind"] == "analysis_start" and row["status"] in ("queued", "running"):
+            if row["kind"] in ("analysis_start", "analysis_start_v2") and row["status"] in (
+                "queued",
+                "running",
+            ):
                 run = self._stop_analysis(
                     self._analysis(db, a.id), "cancelled", "Analysis cancelled"
                 )
@@ -1005,11 +1225,20 @@ class Service:
                 if self.stopping.is_set() or self._job(db, id)["status"] != "running":
                     return False
                 original = self._analysis(db, id)
-                if (run.id, run.request, run.budget, run.created_at) != (
+                if (
+                    run.id,
+                    run.request,
+                    run.budget,
+                    run.created_at,
+                    run.schema_version,
+                    getattr(run, "research_options", None),
+                ) != (
                     original.id,
                     original.request,
                     original.budget,
                     original.created_at,
+                    original.schema_version,
+                    getattr(original, "research_options", None),
                 ):
                     raise ValueError("Analysis immutable input changed")
                 self._write_analysis(db, run)
@@ -1023,7 +1252,8 @@ class Service:
                     return
                 run = self._analysis(db, id).model_copy(update={"status": "running"})
                 self._write_analysis(db, run)
-            result = await run_analysis(run, self.local_analysis, save, cancelled)
+            coordinator = run_analysis_v2 if isinstance(run, AnalysisRunV2) else run_analysis
+            result = await coordinator(run, self.local_analysis, save, cancelled)
             if not self.stopping.is_set():
                 if result.status in ("queued", "running"):
                     raise ValueError("Analysis coordinator returned unfinished work")
@@ -1055,7 +1285,7 @@ class Service:
                 self.wake.wait(0.2)
                 self.wake.clear()
                 continue
-            if row["kind"] == "analysis_start":
+            if row["kind"] in ("analysis_start", "analysis_start_v2"):
                 asyncio.run(self._run_analysis_job(row))
                 continue
             payload = json.loads(row["input_json"])

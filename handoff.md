@@ -11,6 +11,12 @@ Implemented:
 - `analysis_start_v2` performs bounded public search/fetch before downstream analysis, stores source
   snapshots, exact passages and task-visible citations atomically, and supports explicit online/offline
   mode. `analysis_start`/`analysis_list` remain offline v1.
+- `research_evidence` provides an authenticated cursor-paginated read model for v2 source snapshots
+  and exact passages. It is additive: `analysis_get` still returns the complete bounded v2 snapshot,
+  and old v1/v2 projects remain readable.
+- `research_frontier` exposes the bounded v2 query frontier as an authenticated cursor-paginated read
+  model. It records framing queries, priority, attempted/skipped/stop state and explicit gaps without
+  claiming query-level source attribution.
 - The old supply-chain Web page is removed. Its deterministic kernel, stored data and HTTP/CLI/MCP
   operations remain compatible; legacy `vision_*` analysis remains single-call and explicitly saved.
 - The UTC nixie clock, local particle background, shared graph controls and responsive analysis UI are
@@ -24,6 +30,9 @@ Known boundaries:
   has no exact provider-response byte accounting; public fetch validates and pins addresses.
 - Critique-triggered follow-up research, resumable reruns, user-material attachment, human review,
   assumption branches and portable packages are not implemented.
+- The paginated evidence read model currently mirrors the bounded v2 snapshot; it does not yet add a
+  source-version deduplication beyond a run, lexical passage selection, or critique-triggered follow-up
+  collection. The frontier is currently projected from one bounded run, not a resumable cross-run queue.
 - `TIANJI_RESEARCH_DNS=cloudflare` is an explicit opt-in for environments with fake-IP DNS; otherwise
   the system resolver is used and non-public answers fail closed.
 
