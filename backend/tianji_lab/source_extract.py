@@ -128,18 +128,50 @@ def extract_source(result: FetchResult, source_id: str, title: str = "") -> Sour
     )
 
 
-def source_passages(source: Source) -> list[Passage]:
-    """Expose at most three contiguous, exact codepoint windows, not paraphrases."""
-    passages = []
-    for index, start in enumerate(range(0, min(len(source.text), 2400), 800), 1):
+def _terms(values: list[str]) -> set[str]:
+    return {
+        token
+        for value in values
+        for token in re.findall(r"[\w]+", value.casefold(), flags=re.UNICODE)
+        if len(token) >= 2
+    }
+
+
+def source_passages(
+    source: Source,
+    queries: list[str] | None = None,
+    *,
+    max_passages: int = 3,
+) -> list[Passage]:
+    """Select exact windows by lexical overlap across the complete retained text.
+
+    The first bounded snapshot keeps its historical first-three-window shape by
+    default. Continuation archives can request all windows, while task-visible
+    passages use the query-scored subset. No paraphrase or vector index is used.
+    """
+    if not 1 <= max_passages <= 8:
+        raise ValueError("max_passages must be 1..8")
+    windows = []
+    terms = _terms(queries or [])
+    for index, start in enumerate(range(0, len(source.text), 800), 1):
         end = min(start + 800, len(source.text))
-        passages.append(
-            Passage(
-                id=f"{source.id}_p{index}",
-                source_id=source.id,
-                start=start,
-                end=end,
-                quote=source.text[start:end],
-            )
+        quote = source.text[start:end]
+        score = sum(quote.casefold().count(term) for term in terms)
+        windows.append((score, index, start, end, quote))
+    if not windows:
+        return []
+    if terms and any(window[0] for window in windows):
+        selected = sorted(windows, key=lambda item: (-item[0], item[1]))[:max_passages]
+        selected.sort(key=lambda item: item[1])
+    else:
+        selected = windows[:max_passages]
+    return [
+        Passage(
+            id=f"{source.id}_p{index}",
+            source_id=source.id,
+            start=start,
+            end=end,
+            quote=quote,
         )
-    return passages
+        for _, index, start, end, quote in selected
+    ]

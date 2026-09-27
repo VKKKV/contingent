@@ -29,6 +29,7 @@ from tianji_lab.api import create_app
 from tianji_lab.research_types import (
     Passage,
     ResearchBudget,
+    ResearchContinuation,
     ResearchOptions,
     ResearchState,
     Source,
@@ -752,3 +753,276 @@ def test_http_v2_registry_input_validation_and_explicit_v1(lab, tmp_path):
             saved["schema_version"] == "tianji.analysis.v2"
             and saved["research"]["status"] == "not_started"
         )
+
+
+def test_continuation_contract_is_explicit_and_parent_is_immutable(tmp_path):
+    service = Service(tmp_path, start_worker=False)
+    parent = fresh(research=evidence(), status="partial")
+    try:
+        with service.store.transaction() as db:
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (parent.id, "analysis_start_v2", "partial", "{}", parent.created_at),
+            )
+            db.execute(
+                "INSERT INTO analysis VALUES(?,?,?)",
+                (parent.id, parent.model_dump_json(), parent.created_at),
+            )
+            service._write_analysis(db, parent)
+        queued = call(
+            service,
+            "research_continue",
+            {
+                "parent_id": parent.id,
+                "queries": ["new primary evidence", "counter evidence"],
+                "reason": "critique",
+                "research": {"mode": "offline"},
+            },
+        )
+        continuation_id = queued["id"]
+        continuation = service.execute("research_continuation_get", {"id": continuation_id})
+        assert continuation["parent_id"] == parent.id
+        assert continuation["queries"] == ["new primary evidence", "counter evidence"]
+        assert continuation["status"] == "queued"
+        listed = service.execute("research_continuation_list", {"id": parent.id})
+        assert [item["id"] for item in listed["items"]] == [continuation_id]
+        assert service.execute("analysis_get", {"id": parent.id})["research"]["sources"]
+        catalog = {item["name"]: item for item in service.capabilities()}
+        assert catalog["research_continue"]["input_schema"]
+        assert catalog["research_continuation_frontier"]["input_schema"]
+    finally:
+        service.close()
+
+
+def test_continuation_rejects_empty_normalized_query(tmp_path):
+    service = Service(tmp_path, start_worker=False)
+    parent = fresh(research=evidence(), status="partial")
+    try:
+        with service.store.transaction() as db:
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (parent.id, "analysis_start_v2", "partial", "{}", parent.created_at),
+            )
+            db.execute(
+                "INSERT INTO analysis VALUES(?,?,?)",
+                (parent.id, parent.model_dump_json(), parent.created_at),
+            )
+            service._write_analysis(db, parent)
+        with pytest.raises(OperationError, match="empty"):
+            call(service, "research_continue", {"parent_id": parent.id, "queries": ["   "]})
+    finally:
+        service.close()
+
+
+def test_continuation_page_has_stable_frontier_cursor(tmp_path):
+    service = Service(tmp_path, start_worker=False)
+    parent = fresh(research=evidence(), status="partial")
+    continuation = ResearchContinuation(
+        id="continuation-test",
+        parent_id=parent.id,
+        queries=["one", "two"],
+        research_options=ResearchOptions(mode="offline"),
+        status="skipped",
+        research=ResearchState(status="skipped", errors=["no_new_evidence"]),
+        stop_reason="no_new_evidence",
+        created_at=now(),
+        finished_at=now(),
+    )
+    try:
+        with service.store.transaction() as db:
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (parent.id, "analysis_start_v2", "partial", "{}", parent.created_at),
+            )
+            db.execute(
+                "INSERT INTO analysis VALUES(?,?,?)",
+                (parent.id, parent.model_dump_json(), parent.created_at),
+            )
+            service._write_analysis(db, parent)
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (continuation.id, "research_continue", "skipped", "{}", continuation.created_at),
+            )
+            db.execute(
+                "INSERT INTO research_continuation VALUES(?,?,?,?)",
+                (
+                    continuation.id,
+                    continuation.parent_id,
+                    continuation.model_dump_json(),
+                    continuation.created_at,
+                ),
+            )
+            refreshed = service._continuation_refresh(continuation)
+            service._sync_continuation(db, refreshed)
+        page = service.execute(
+            "research_continuation_frontier", {"id": continuation.id, "limit": 1}
+        )
+        assert page["kind"] == "frontier"
+        assert page["items"][0]["state"] == "skipped"
+        assert page["next_cursor"]
+        next_page = service.execute(
+            "research_continuation_frontier",
+            {"id": continuation.id, "after": page["next_cursor"], "limit": 1},
+        )
+        assert [item["query"] for item in next_page["items"]] == ["two"]
+    finally:
+        service.close()
+
+
+def test_continuation_worker_offline_finishes_without_touching_parent(tmp_path):
+    service = Service(tmp_path, start_worker=False)
+    parent = fresh(research=evidence(), status="partial")
+    try:
+        with service.store.transaction() as db:
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (parent.id, "analysis_start_v2", "partial", "{}", parent.created_at),
+            )
+            db.execute(
+                "INSERT INTO analysis VALUES(?,?,?)",
+                (parent.id, parent.model_dump_json(), parent.created_at),
+            )
+            service._write_analysis(db, parent)
+        queued = call(
+            service,
+            "research_continue",
+            {
+                "parent_id": parent.id,
+                "queries": ["fresh query"],
+                "research": {"mode": "offline"},
+            },
+        )
+        with service.store.transaction() as db:
+            db.execute("UPDATE jobs SET status='running' WHERE id=?", (queued["id"],))
+        asyncio.run(service._run_continuation_job({"id": queued["id"], "status": "running"}))
+        continuation = service.execute("research_continuation_get", {"id": queued["id"]})
+        assert continuation["status"] == "skipped"
+        assert continuation["research"]["status"] == "skipped"
+        assert continuation["research"]["queries"] == []
+        assert service.execute("analysis_get", {"id": parent.id})["id"] == parent.id
+    finally:
+        service.close()
+
+
+def test_continuation_worker_persists_new_source_with_stable_ids(monkeypatch, tmp_path):
+    service = Service(tmp_path, start_worker=False)
+    parent = fresh(research=evidence(), status="partial")
+    text = "A new counter-evidence source contains a later observation. " * 100
+    source = Source(
+        id="source_1",
+        title="New source",
+        url="https://example.net/new",
+        resolved_url="https://example.net/new",
+        retrieved_at=now(),
+        publisher="example.net",
+        text=text[:6000],
+        text_sha256=hashlib.sha256(text[:6000].encode()).hexdigest(),
+        extractor="test-only",
+    )
+    try:
+        with service.store.transaction() as db:
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (parent.id, "analysis_start_v2", "partial", "{}", parent.created_at),
+            )
+            db.execute(
+                "INSERT INTO analysis VALUES(?,?,?)",
+                (parent.id, parent.model_dump_json(), parent.created_at),
+            )
+            service._write_analysis(db, parent)
+        queued = call(
+            service,
+            "research_continue",
+            {
+                "parent_id": parent.id,
+                "queries": ["counter evidence"],
+                "research": {"mode": "online", "budget": {"max_queries": 1}},
+            },
+        )
+        with service.store.transaction() as db:
+            db.execute("UPDATE jobs SET status='running' WHERE id=?", (queued["id"],))
+
+        async def fake_collect(queries, options, state, checkpoint, check, **kwargs):
+            state.status = "running"
+            state.queries = queries
+            state.queries_used = 1
+            stable = kwargs["normalize_source"](source)
+            state.sources = [stable]
+            state.passages = [
+                Passage(
+                    id=f"{stable.id}_p1",
+                    source_id=stable.id,
+                    start=0,
+                    end=800,
+                    quote=source.text[:800],
+                )
+            ]
+            kwargs["on_evidence"]("counter evidence", stable, state.passages, True)
+            state.status = "succeeded"
+            checkpoint()
+
+        monkeypatch.setattr("tianji_lab.research.collect_research", fake_collect)
+        asyncio.run(service._run_continuation_job({"id": queued["id"], "status": "running"}))
+        continuation = service.execute("research_continuation_get", {"id": queued["id"]})
+        assert continuation["status"] == "succeeded"
+        assert continuation["added_source_ids"][0].startswith("evidence_")
+        assert continuation["added_passage_ids"] == [f"{continuation['added_source_ids'][0]}_p1"]
+        page = service.execute(
+            "research_continuation_evidence",
+            {"id": queued["id"], "kind": "sources"},
+        )
+        assert page["items"][0]["id"] == continuation["added_source_ids"][0]
+        assert (
+            service.execute("analysis_get", {"id": parent.id})["research"]["sources"][0]["id"]
+            == "source_1"
+        )
+    finally:
+        service.close()
+
+
+def test_continuation_cancel_preserves_terminal_stop_state(tmp_path):
+    service = Service(tmp_path, start_worker=False)
+    parent = fresh(research=evidence(), status="partial")
+    try:
+        with service.store.transaction() as db:
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (parent.id, "analysis_start_v2", "partial", "{}", parent.created_at),
+            )
+            db.execute(
+                "INSERT INTO analysis VALUES(?,?,?)",
+                (parent.id, parent.model_dump_json(), parent.created_at),
+            )
+            service._write_analysis(db, parent)
+        queued = call(
+            service,
+            "research_continue",
+            {"parent_id": parent.id, "queries": ["cancel me"]},
+        )
+        cancelled = call(service, "job_cancel", {"id": queued["id"]})
+        assert cancelled["status"] == "cancelled"
+        continuation = service.execute("research_continuation_get", {"id": queued["id"]})
+        assert continuation["status"] == "cancelled"
+        assert continuation["stop_reason"] == "cancelled"
+    finally:
+        service.close()
+
+
+def test_continuation_http_registry_and_validation(tmp_path):
+    with TestClient(create_app(tmp_path, token="test", start_worker=False)) as client:
+        client.headers["Authorization"] = "Bearer test"
+        catalog = {item["name"]: item for item in client.get("/api/capabilities").json()}
+        assert catalog["research_continue"]["mutating"] is True
+        assert catalog["research_continuation_evidence"]["input_schema"]
+        response = client.post(
+            "/api/operations/research_continue",
+            json={
+                "arguments": {
+                    "parent_id": "missing",
+                    "queries": ["new evidence"],
+                },
+                "request_id": "continuation-validation",
+            },
+        )
+        assert response.status_code == 404
+        assert response.json()["error"]["code"] == "not_found"

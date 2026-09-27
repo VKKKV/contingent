@@ -11,7 +11,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from . import kernel
 from .analysis import AnalysisRun, AnalysisStart
@@ -37,7 +37,14 @@ from .offline_adjudication import (
     adjudicate,
     observe_envelope,
 )
-from .research_types import Passage, ResearchFrontierItem, Source
+from .research_types import (
+    Passage,
+    ResearchContinuation,
+    ResearchFrontierItem,
+    ResearchOptions,
+    ResearchState,
+    Source,
+)
 from .store import Store, canonical
 from .vision import (
     LocalVision,
@@ -81,6 +88,31 @@ class ResearchEvidence(ById):
 
 class ResearchFrontier(ById):
     after: Annotated[str, Field(max_length=100, pattern=r"^[A-Za-z0-9_-]*$")] = ""
+    limit: Annotated[int, Field(ge=1, le=50)] = 20
+
+
+class ResearchContinuationStart(Input):
+    parent_id: Identifier
+    queries: Annotated[list[str], Field(min_length=1, max_length=3)]
+    reason: Literal["manual", "critique", "gap"] = "manual"
+    research: ResearchOptions = Field(default_factory=ResearchOptions)
+
+    @field_validator("queries")
+    @classmethod
+    def non_empty_queries(cls, queries):
+        if any(not " ".join(query.split()) for query in queries):
+            raise ValueError("Queries must not be empty")
+        return queries
+
+
+class ResearchContinuationPage(ById):
+    kind: Literal["sources", "passages", "frontier"]
+    after: Annotated[str, Field(max_length=200, pattern=r"^[A-Za-z0-9_-]*$")] = ""
+    limit: Annotated[int, Field(ge=1, le=50)] = 20
+
+
+class ResearchContinuationFrontierPage(ById):
+    after: Annotated[str, Field(max_length=200, pattern=r"^[A-Za-z0-9_-]*$")] = ""
     limit: Annotated[int, Field(ge=1, le=50)] = 20
 
 
@@ -217,6 +249,32 @@ OPERATIONS = {
         ResearchFrontier,
         False,
         "Read the durable, paginated question/query frontier for a v2 analysis.",
+    ),
+    "research_continue": (
+        ResearchContinuationStart,
+        True,
+        "Queue an explicit, separately budgeted continuation from a terminal v2 analysis. "
+        "The parent snapshot is immutable; new evidence is deduplicated by source text hash.",
+    ),
+    "research_continuation_get": (
+        ById,
+        False,
+        "Read one continuation research job and its bounded result.",
+    ),
+    "research_continuation_list": (
+        ById,
+        False,
+        "List explicit continuation jobs for a parent v2 analysis.",
+    ),
+    "research_continuation_evidence": (
+        ResearchContinuationPage,
+        False,
+        "Read paginated sources or passages added by a continuation.",
+    ),
+    "research_continuation_frontier": (
+        ResearchContinuationFrontierPage,
+        False,
+        "Read the paginated query frontier for a continuation.",
     ),
     "analysis_list": (Empty, False, "List saved analysis projects, newest first (at most 100)."),
     "vision_generate": (
@@ -645,6 +703,263 @@ class Service:
         }
 
     @staticmethod
+    def _evidence_identity(source):
+        return f"evidence_{source.text_sha256}"
+
+    @classmethod
+    def _continuation_source(cls, source, parent_id, existing=()):
+        document_id = f"document_{hashlib.sha256(source.resolved_url.encode()).hexdigest()}"
+        version = 1 + max(
+            (item.version for item in existing if item.document_id == document_id),
+            default=0,
+        )
+        stable = source.model_copy(
+            update={
+                "id": cls._evidence_identity(source),
+                "document_id": document_id,
+                "version": version,
+                "origin_run_id": parent_id,
+            }
+        )
+        return stable
+
+    @staticmethod
+    def _continuation_passages(source, passages):
+        identity = source.id
+        return [
+            passage.model_copy(
+                update={
+                    "id": f"{identity}_p{index}",
+                    "source_id": identity,
+                }
+            )
+            for index, passage in enumerate(passages, 1)
+        ]
+
+    @staticmethod
+    def _continuation(db, id):
+        row = Service._row(db, "jobs", id)
+        if row["kind"] != "research_continue":
+            raise OperationError("validation", "Job is not a research continuation")
+        data = json.loads(
+            db.execute(
+                "SELECT continuation_json FROM research_continuation WHERE id=?", (id,)
+            ).fetchone()[0]
+        )
+        continuation = ResearchContinuation.model_validate(data)
+        if continuation.id != id:
+            raise ValueError("Continuation identity mismatch")
+        return continuation
+
+    @staticmethod
+    def _continuation_job_result(continuation):
+        return {"continuation_id": continuation.id}
+
+    @staticmethod
+    def _sync_continuation(db, continuation):
+        data = canonical(continuation.model_dump(mode="json"))
+        ResearchContinuation.model_validate_json(data)
+        db.execute(
+            "UPDATE research_continuation SET continuation_json=? WHERE id=?",
+            (data, continuation.id),
+        )
+        db.execute(
+            "DELETE FROM research_continuation_source WHERE continuation_id=?",
+            (continuation.id,),
+        )
+        db.execute(
+            "DELETE FROM research_continuation_passage WHERE continuation_id=?",
+            (continuation.id,),
+        )
+        db.execute(
+            "DELETE FROM research_continuation_frontier WHERE continuation_id=?",
+            (continuation.id,),
+        )
+        for source in continuation.research.sources:
+            db.execute(
+                "INSERT INTO research_continuation_source VALUES(?,?,?)",
+                (continuation.id, source.id, canonical(source.model_dump(mode="json"))),
+            )
+        for passage in continuation.research.passages:
+            db.execute(
+                "INSERT INTO research_continuation_passage VALUES(?,?,?,?)",
+                (
+                    continuation.id,
+                    passage.id,
+                    passage.source_id,
+                    canonical(passage.model_dump(mode="json")),
+                ),
+            )
+        for item in continuation.frontier:
+            db.execute(
+                "INSERT INTO research_continuation_frontier VALUES(?,?,?)",
+                (continuation.id, item.id, canonical(item.model_dump(mode="json"))),
+            )
+
+    def _continuation_page(self, db, request):
+        continuation = self._continuation(db, request.id)
+        ready = self._continuation_ready(continuation)
+        if ready != continuation:
+            self._sync_continuation(db, ready)
+            continuation = ready
+        if request.kind == "frontier":
+            table, key, payload_key, model, pattern = (
+                "research_continuation_frontier",
+                "frontier_id",
+                "frontier_json",
+                ResearchFrontierItem,
+                r"frontier_c[0-9a-f]{64}_[1-3]",
+            )
+        elif request.kind == "sources":
+            table, key, payload_key, model, pattern = (
+                "research_continuation_source",
+                "source_id",
+                "source_json",
+                Source,
+                r"evidence_[0-9a-f]{64}",
+            )
+        else:
+            table, key, payload_key, model, pattern = (
+                "research_continuation_passage",
+                "passage_id",
+                "passage_json",
+                Passage,
+                r"evidence_[0-9a-f]{64}_p[1-8]",
+            )
+        if request.after and not re.fullmatch(pattern, request.after):
+            raise OperationError("validation", "Cursor does not match continuation kind")
+        if request.kind == "frontier":
+            frontier = self._continuation_frontier(continuation)
+            if frontier != continuation.frontier:
+                continuation = continuation.model_copy(update={"frontier": frontier})
+                self._sync_continuation(db, continuation)
+        rows = db.execute(
+            f"SELECT {key},{payload_key} AS payload FROM {table} "
+            f"WHERE continuation_id=? AND {key}>? ORDER BY {key} LIMIT ?",
+            (request.id, request.after, request.limit + 1),
+        ).fetchall()
+        has_more = len(rows) > request.limit
+        items = [
+            model.model_validate_json(row["payload"]).model_dump(mode="json")
+            for row in rows[: request.limit]
+        ]
+        return {
+            "continuation_id": continuation.id,
+            "parent_id": continuation.parent_id,
+            "kind": request.kind,
+            "items": items,
+            "next_cursor": items[-1]["id"] if has_more else None,
+        }
+
+    @staticmethod
+    def _continuation_frontier(continuation):
+        digest = hashlib.sha256(continuation.id.encode()).hexdigest()
+        attempted = (
+            {query.casefold() for query in continuation.research.queries}
+            if continuation.research.status != "skipped"
+            else set()
+        )
+        terminal = continuation.status not in ("queued", "running")
+        items = []
+        for index, query in enumerate(continuation.queries, 1):
+            if query.casefold() in attempted:
+                state = "attempted"
+                reason = (
+                    continuation.research.errors[0]
+                    if continuation.research.errors and not continuation.research.sources
+                    else None
+                )
+            elif continuation.status == "cancelled":
+                state = "cancelled"
+                reason = continuation.stop_reason or "cancelled"
+            elif continuation.status == "interrupted":
+                state = "interrupted"
+                reason = continuation.stop_reason or "interrupted"
+            elif terminal:
+                state = "skipped"
+                reason = continuation.stop_reason or continuation.status
+            else:
+                state = "proposed"
+                reason = None
+            refs = continuation.query_evidence.get(query, [])
+            if query.casefold() in attempted and not refs and continuation.research.sources:
+                refs = list(continuation.research.query_sources.get(query, []))
+            items.append(
+                ResearchFrontierItem(
+                    id=f"frontier_c{digest}_{index}",
+                    question=query,
+                    parent_question=None,
+                    goal_facet="",
+                    query=query,
+                    priority=index,
+                    state=state,
+                    attempts=1 if query.casefold() in attempted else 0,
+                    evidence_refs=refs,
+                    stop_reason=reason,
+                    created_at=continuation.created_at,
+                    updated_at=continuation.finished_at or continuation.created_at,
+                )
+            )
+        return items
+
+    @staticmethod
+    def _continuation_ready(continuation):
+        refreshed = Service._continuation_refresh(continuation)
+        return refreshed
+
+    @staticmethod
+    def _continuation_mark(continuation, status, *, error=None, stop_reason=None):
+        return continuation.model_copy(
+            update={
+                "status": status,
+                "error": error,
+                "stop_reason": stop_reason,
+                "finished_at": now(),
+            }
+        )
+
+    @staticmethod
+    def _continuation_refresh(continuation):
+        refreshed = continuation.model_copy(
+            update={
+                "added_source_ids": [source.id for source in continuation.research.sources],
+                "added_passage_ids": [passage.id for passage in continuation.research.passages],
+                "frontier": Service._continuation_frontier(continuation),
+            }
+        )
+        return refreshed
+
+    def _continuation_known_sources(self, db, parent_id):
+        parent = self._analysis(db, parent_id)
+        sources = []
+        if isinstance(parent, AnalysisRunV2):
+            sources.extend(
+                self._continuation_source(source, parent.id, sources)
+                for source in parent.research.sources
+            )
+        rows = db.execute(
+            "SELECT continuation_json FROM research_continuation "
+            "WHERE parent_analysis_id=? ORDER BY created_at,id",
+            (parent_id,),
+        ).fetchall()
+        for row in rows:
+            try:
+                continuation = ResearchContinuation.model_validate_json(row[0])
+            except ValidationError:
+                continue
+            sources.extend(continuation.research.sources)
+        unique = {}
+        for source in sources:
+            unique[source.text_sha256] = source
+        sources = list(unique.values())
+        by_url = {}
+        for source in sources:
+            by_url[source.url] = source
+            by_url[source.resolved_url] = source
+            by_url[f"sha256:{source.text_sha256}"] = source
+        return by_url
+
+    @staticmethod
     def _finish_analysis(db, run):
         result = {"analysis_id": run.id} if run.status in ("succeeded", "partial") else None
         db.execute(
@@ -850,6 +1165,87 @@ class Service:
             return self._research_evidence(db, a)
         if name == "research_frontier":
             return self._research_frontier(db, a)
+        if name == "research_continue":
+            parent = self._analysis(db, a.parent_id)
+            if not isinstance(parent, AnalysisRunV2):
+                raise OperationError("unsupported", "Continuation requires a v2 analysis", 409)
+            if parent.status not in ("succeeded", "partial", "failed", "cancelled", "interrupted"):
+                raise OperationError("conflict", "Parent analysis is not terminal", 409)
+            self._queue_capacity(db)
+            queries = [" ".join(query.split())[:500] for query in a.queries]
+            if any(not query for query in queries):
+                raise OperationError("validation", "Queries must not be empty")
+            queries = list(dict.fromkeys(queries))
+            if not queries:
+                raise OperationError("validation", "At least one distinct query is required")
+            continuation_id = uid()
+            continuation = ResearchContinuation(
+                id=continuation_id,
+                parent_id=parent.id,
+                reason=a.reason,
+                queries=queries,
+                research_options=a.research,
+                created_at=now(),
+            )
+            payload = {
+                "continuation_id": continuation_id,
+                "parent_id": parent.id,
+            }
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,NULL,NULL,?)",
+                (
+                    continuation_id,
+                    "research_continue",
+                    "queued",
+                    canonical(payload),
+                    continuation.created_at,
+                ),
+            )
+            db.execute(
+                "INSERT INTO research_continuation VALUES(?,?,?,?)",
+                (
+                    continuation.id,
+                    continuation.parent_id,
+                    canonical(continuation.model_dump(mode="json")),
+                    continuation.created_at,
+                ),
+            )
+            return self._job(db, continuation.id)
+        if name == "research_continuation_get":
+            continuation = self._continuation(db, a.id)
+            ready = self._continuation_ready(continuation)
+            if ready != continuation:
+                self._sync_continuation(db, ready)
+                continuation = ready
+            return continuation.model_dump(mode="json")
+        if name == "research_continuation_list":
+            parent = self._analysis(db, a.id)
+            if not isinstance(parent, AnalysisRunV2):
+                raise OperationError("unsupported", "Continuation requires a v2 analysis", 409)
+            rows = []
+            for row in db.execute(
+                "SELECT id FROM research_continuation "
+                "WHERE parent_analysis_id=? ORDER BY created_at,id",
+                (a.id,),
+            ):
+                item = self._continuation(db, row[0])
+                ready = self._continuation_ready(item)
+                if ready != item:
+                    self._sync_continuation(db, ready)
+                    item = ready
+                rows.append(item.model_dump(mode="json"))
+            return {
+                "parent_id": a.id,
+                "items": rows,
+            }
+        if name in ("research_continuation_evidence", "research_continuation_frontier"):
+            if name == "research_continuation_frontier":
+                request = ResearchContinuationPage(
+                    id=a.id, kind="frontier", after=a.after, limit=a.limit
+                )
+            else:
+                request = a
+            return self._continuation_page(db, request)
         if name in ("analysis_list", "analysis_list_v2"):
             return {
                 "items": [
@@ -1120,6 +1516,21 @@ class Service:
             return self._job(db, a.id)
         if name == "job_cancel":
             row = self._row(db, "jobs", a.id)
+            if row["kind"] == "research_continue" and row["status"] in ("queued", "running"):
+                continuation = self._continuation(db, a.id)
+                continuation = self._continuation_mark(
+                    continuation,
+                    "cancelled",
+                    error="Research continuation cancelled",
+                    stop_reason="cancelled",
+                )
+                self._sync_continuation(db, continuation)
+                db.execute(
+                    "UPDATE jobs SET status='cancelled', "
+                    "error='Research continuation cancelled' WHERE id=?",
+                    (a.id,),
+                )
+                return self._job(db, a.id)
             if row["kind"] in ("analysis_start", "analysis_start_v2") and row["status"] in (
                 "queued",
                 "running",
@@ -1272,6 +1683,158 @@ class Service:
             self._write_analysis(db, run)
             self._finish_analysis(db, run)
 
+    async def _run_continuation_job(self, row):
+        continuation_id = row["id"]
+
+        def cancelled():
+            if self.stopping.is_set():
+                return "interrupted"
+            with self.store.transaction() as db:
+                status = self._job(db, continuation_id)["status"]
+            return "cancelled" if status == "cancelled" else None
+
+        def save(continuation):
+            with self.store.transaction() as db:
+                if self.stopping.is_set() or self._job(db, continuation_id)["status"] != "running":
+                    return False
+                current = self._continuation(db, continuation_id)
+                if (
+                    continuation.id,
+                    continuation.parent_id,
+                    continuation.queries,
+                    continuation.research_options,
+                    continuation.created_at,
+                ) != (
+                    current.id,
+                    current.parent_id,
+                    current.queries,
+                    current.research_options,
+                    current.created_at,
+                ):
+                    raise ValueError("Continuation immutable input changed")
+                self._sync_continuation(db, self._continuation_refresh(continuation))
+                if continuation.status not in ("queued", "running"):
+                    db.execute(
+                        "UPDATE jobs SET status=?,result_json=?,error=? WHERE id=?",
+                        (
+                            continuation.status,
+                            canonical(self._continuation_job_result(continuation))
+                            if continuation.status in ("succeeded", "partial", "skipped")
+                            else None,
+                            continuation.error,
+                            continuation.id,
+                        ),
+                    )
+                return True
+
+        try:
+            with self.store.transaction() as db:
+                if self._job(db, continuation_id)["status"] != "running":
+                    return
+                continuation = self._continuation(db, continuation_id).model_copy(
+                    update={
+                        "status": "running",
+                        "research": ResearchState(
+                            status="running", queries=[], sources=[], passages=[]
+                        ),
+                    }
+                )
+                self._sync_continuation(db, continuation)
+                known = self._continuation_known_sources(db, continuation.parent_id)
+            from .research import collect_research
+
+            source_map = dict(known)
+
+            def checkpoint():
+                if not save(continuation):
+                    raise RuntimeError("Late continuation result discarded")
+
+            def check():
+                state = cancelled()
+                if state:
+                    raise RuntimeError(state)
+
+            def normalize(source):
+                return self._continuation_source(
+                    source, continuation.parent_id, continuation.research.sources
+                )
+
+            def on_evidence(query, source, passages, is_new):
+                stable = source if source.id.startswith("evidence_") else normalize(source)
+                selected = [
+                    passage.model_copy(
+                        update={"id": f"{stable.id}_p{index}", "source_id": stable.id}
+                    )
+                    for index, passage in enumerate(passages, 1)
+                ]
+                if is_new and stable.id not in {item.id for item in continuation.research.sources}:
+                    continuation.research.sources.append(stable)
+                known_ids = {item.id for item in continuation.research.passages}
+                continuation.research.passages.extend(
+                    passage for passage in selected if passage.id not in known_ids
+                )
+                continuation.query_evidence.setdefault(query, [])
+                if is_new and stable.id not in continuation.query_evidence[query]:
+                    continuation.query_evidence[query].append(stable.id)
+                continuation.research.query_sources.setdefault(query, [])
+                if is_new and stable.id not in continuation.research.query_sources[query]:
+                    continuation.research.query_sources[query].append(stable.id)
+                checkpoint()
+
+            await collect_research(
+                continuation.queries,
+                continuation.research_options,
+                continuation.research,
+                checkpoint,
+                check,
+                passage_limit=8,
+                known_sources=source_map,
+                normalize_source=normalize,
+                on_evidence=on_evidence,
+            )
+            status = (
+                "skipped"
+                if continuation.research.status == "skipped"
+                else "succeeded"
+                if continuation.research.sources and not continuation.research.errors
+                else (
+                    "partial"
+                    if continuation.research.sources
+                    else "skipped"
+                    if "no_new_evidence" in continuation.research.errors
+                    else "failed"
+                )
+            )
+            continuation = self._continuation_mark(continuation, status)
+            save(continuation)
+        except Exception:
+            with self.store.transaction() as db:
+                if self._job(db, continuation_id)["status"] != "running":
+                    return
+                continuation = self._continuation(db, continuation_id)
+                if continuation.status == "cancelled":
+                    return
+                continuation = self._continuation_mark(
+                    continuation,
+                    "interrupted" if self.stopping.is_set() else "failed",
+                    error=(
+                        "Service stopped"
+                        if self.stopping.is_set()
+                        else "Research continuation failed"
+                    ),
+                    stop_reason="interrupted" if self.stopping.is_set() else "provider_failure",
+                )
+                self._sync_continuation(db, continuation)
+                db.execute(
+                    "UPDATE jobs SET status=?,result_json=?,error=? WHERE id=?",
+                    (
+                        continuation.status,
+                        canonical(self._continuation_job_result(continuation)),
+                        continuation.error,
+                        continuation.id,
+                    ),
+                )
+
     def _worker(self):
         context = multiprocessing.get_context("spawn")
         while not self.stopping.is_set():
@@ -1287,6 +1850,9 @@ class Service:
                 continue
             if row["kind"] in ("analysis_start", "analysis_start_v2"):
                 asyncio.run(self._run_analysis_job(row))
+                continue
+            if row["kind"] == "research_continue":
+                asyncio.run(self._run_continuation_job(row))
                 continue
             payload = json.loads(row["input_json"])
             receive, send = context.Pipe(duplex=False)

@@ -89,6 +89,38 @@ class Store:
                     PRIMARY KEY(analysis_id, frontier_id));
                 CREATE INDEX IF NOT EXISTS research_frontier_page
                     ON research_frontier(analysis_id, frontier_id);
+                CREATE TABLE IF NOT EXISTS research_continuation (
+                    id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+                    parent_analysis_id TEXT NOT NULL REFERENCES analysis(id),
+                    continuation_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS research_continuation_parent
+                    ON research_continuation(parent_analysis_id, created_at, id);
+                CREATE TABLE IF NOT EXISTS research_continuation_source (
+                    continuation_id TEXT NOT NULL REFERENCES research_continuation(id)
+                        ON DELETE CASCADE,
+                    source_id TEXT NOT NULL,
+                    source_json TEXT NOT NULL,
+                    PRIMARY KEY(continuation_id, source_id));
+                CREATE INDEX IF NOT EXISTS research_continuation_source_page
+                    ON research_continuation_source(continuation_id, source_id);
+                CREATE TABLE IF NOT EXISTS research_continuation_passage (
+                    continuation_id TEXT NOT NULL REFERENCES research_continuation(id)
+                        ON DELETE CASCADE,
+                    passage_id TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    passage_json TEXT NOT NULL,
+                    PRIMARY KEY(continuation_id, passage_id));
+                CREATE INDEX IF NOT EXISTS research_continuation_passage_page
+                    ON research_continuation_passage(continuation_id, passage_id);
+                CREATE TABLE IF NOT EXISTS research_continuation_frontier (
+                    continuation_id TEXT NOT NULL REFERENCES research_continuation(id)
+                        ON DELETE CASCADE,
+                    frontier_id TEXT NOT NULL,
+                    frontier_json TEXT NOT NULL,
+                    PRIMARY KEY(continuation_id, frontier_id));
+                CREATE INDEX IF NOT EXISTS research_continuation_frontier_page
+                    ON research_continuation_frontier(continuation_id, frontier_id);
             """)
 
     def close(self):
