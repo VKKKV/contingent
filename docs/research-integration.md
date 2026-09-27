@@ -65,14 +65,17 @@ change the user's system proxy. Without this opt-in, non-public answers fail clo
 Source text, exact UTF-8 hashes, Unicode code-point passage spans, research status and citation links
 remain embedded in the versioned analysis snapshot and are committed atomically with the job checkpoint.
 The service additionally mirrors validated sources, passages and the per-run query frontier into
-authenticated cursor-paginated SQLite read models. These are additive read models, not a refresh API or
-an unlimited source archive; the run snapshot remains the compatibility source of truth. Query
+authenticated cursor-paginated SQLite read models. A terminal v2 run can explicitly start a separate
+continuation job with new bounded queries. Continuations preserve the parent ID, immutable input and
+stop state; validated source versions use stable text-independent document identities and exact
+passages use stable evidence IDs. These are additive read models, not an unlimited source archive or
+automatic critique loop; the original run snapshot remains the compatibility source of truth. Query
 persistence and outbound disclosure remain visible; private material must not be copied into queries.
 Retrieved pages are data, not instructions, and cannot alter tool permissions or request private
 information.
 
-Not included in this slice: cross-run frontier continuation, post-critic follow-up research,
-cross-run source-version deduplication, lexical passage selection, attached-file parsing, OCR,
+Not included in this slice: automatic post-critic follow-up research, cross-run frontier merging,
+resumable global queues, attached-file parsing, OCR,
 authenticated browsing, recurring monitoring, arbitrary source refresh, human review, assumption
 branches or real-world action. Optional user material is a later supplement, not a prerequisite for
 autonomous research.

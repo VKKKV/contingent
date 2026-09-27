@@ -156,6 +156,9 @@ export interface ResearchSource {
   text_sha256: string;
   extractor: string;
   origin: "public_web";
+  document_id?: string | null;
+  version?: number;
+  origin_run_id?: string | null;
 }
 export interface ResearchPassage {
   id: string;
@@ -175,6 +178,7 @@ export interface ResearchState {
     | "interrupted"
     | "skipped";
   queries: string[];
+  query_sources?: Record<string, string[]>;
   hits: { title: string; url: string; snippet: string }[];
   sources: ResearchSource[];
   passages: ResearchPassage[];

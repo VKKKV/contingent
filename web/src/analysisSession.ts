@@ -570,5 +570,44 @@ export class AnalysisSession {
         });
     }
   }
+  async continueResearch(
+    queries: string[],
+    reason: "manual" | "critique" | "gap" = "manual",
+  ) {
+    const run = this.state.run;
+    if (
+      !this.active ||
+      !this.client ||
+      !run ||
+      run.schema_version !== "tianji.analysis.v2" ||
+      !["succeeded", "partial", "failed", "cancelled", "interrupted"].includes(
+        run.status,
+      ) ||
+      !this.supports("research_continue") ||
+      !queries.some((query) => query.trim())
+    )
+      return null;
+    this.update({ busy: "creating", error: "", notice: "" });
+    try {
+      const job = await this.client.op(
+        "research_continue",
+        {
+          parent_id: run.id,
+          queries: queries.map((query) => query.trim()).filter(Boolean),
+          reason,
+        },
+        undefined,
+        `research-continue-${run.id}`,
+      );
+      this.update({
+        busy: null,
+        notice: `已提交继续调查任务 ${job.id}，父分析不会被覆盖。`,
+      });
+      return job;
+    } catch (error) {
+      this.update({ busy: null, error: this.message(error) });
+      return null;
+    }
+  }
 }
 export const analysisSession = new AnalysisSession();

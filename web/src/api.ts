@@ -6,6 +6,7 @@ import type {
   ResearchOptions,
   ResearchPassage,
   ResearchSource,
+  ResearchState,
 } from "./analysisTypes";
 
 export type Action = "wait" | "order_standard" | "order_express";
@@ -147,6 +148,10 @@ export interface AnalysisJob extends JobBase {
   kind: "analysis_start" | "analysis_start_v2";
   result: null | { analysis_id: string };
 }
+export interface ResearchContinuationJob extends JobBase {
+  kind: "research_continue";
+  result: null | { continuation_id: string };
+}
 export interface BranchJob extends JobBase {
   kind: "run_forward" | "run_backward" | "branch_fork";
   result: null | {
@@ -155,7 +160,52 @@ export interface BranchJob extends JobBase {
     search?: SearchResult;
   };
 }
-export type Job = AnalysisJob | BranchJob;
+export type Job = AnalysisJob | BranchJob | ResearchContinuationJob;
+export interface ResearchContinuation {
+  schema_version: "tianji.research.continuation.v1";
+  id: string;
+  parent_id: string;
+  reason: "manual" | "critique" | "gap";
+  queries: string[];
+  research_options: ResearchOptions;
+  status: AnalysisStatus | "skipped";
+  research: {
+    status: ResearchState["status"];
+    queries: string[];
+    query_sources?: Record<string, string[]>;
+    hits: { title: string; url: string; snippet: string }[];
+    sources: ResearchSource[];
+    passages: ResearchPassage[];
+    errors: string[];
+    queries_used: number;
+    pages_used: number;
+    fetched_bytes: number;
+    started_at: string | null;
+    finished_at: string | null;
+  };
+  query_evidence: Record<string, string[]>;
+  added_source_ids: string[];
+  added_passage_ids: string[];
+  frontier: ResearchFrontierItem[];
+  stop_reason: string | null;
+  created_at: string;
+  finished_at: string | null;
+  error: string | null;
+}
+export interface ResearchContinuationPage {
+  continuation_id: string;
+  parent_id: string;
+  kind: "sources" | "passages";
+  items: ResearchSource[] | ResearchPassage[];
+  next_cursor: string | null;
+}
+export interface ResearchContinuationFrontierPage {
+  continuation_id: string;
+  parent_id: string;
+  kind: "frontier";
+  items: ResearchFrontierItem[];
+  next_cursor: string | null;
+}
 export interface Workspace {
   id: string;
   revision: number;
@@ -319,6 +369,33 @@ export interface Operations {
   research_frontier: [
     { id: string; after?: string; limit?: number },
     ResearchFrontierPage,
+  ];
+  research_continue: [
+    {
+      parent_id: string;
+      queries: string[];
+      reason?: "manual" | "critique" | "gap";
+      research?: ResearchOptions;
+    },
+    Job,
+  ];
+  research_continuation_get: [{ id: string }, ResearchContinuation];
+  research_continuation_list: [
+    { id: string },
+    { parent_id: string; items: ResearchContinuation[] },
+  ];
+  research_continuation_evidence: [
+    {
+      id: string;
+      kind: "sources" | "passages";
+      after?: string;
+      limit?: number;
+    },
+    ResearchContinuationPage,
+  ];
+  research_continuation_frontier: [
+    { id: string; after?: string; limit?: number },
+    ResearchContinuationFrontierPage,
   ];
   analysis_list: [{}, { items: AnalysisSummary[] }];
   analysis_stats: [{}, AnalysisStats];

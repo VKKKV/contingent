@@ -64,6 +64,7 @@ import "./analysis.css";
 function Workspace({ session }: { session: AnalysisSession }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [token, setToken] = useState(() => tabRead("tianji-token"));
+  const [continuationQuery, setContinuationQuery] = useState("");
   useEffect(() => {
     session.start();
     const stored = tabRead("tianji-token");
@@ -395,6 +396,47 @@ function Workspace({ session }: { session: AnalysisSession }) {
                 {run.error}
               </p>
             )}
+            {run.schema_version === "tianji.analysis.v2" &&
+              [
+                "succeeded",
+                "partial",
+                "failed",
+                "cancelled",
+                "interrupted",
+              ].includes(run.status) && (
+                <section>
+                  <h3>继续调查</h3>
+                  <p>这是新的研究运行；不会修改父分析或覆盖其引用。</p>
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void session.continueResearch([continuationQuery]);
+                      setContinuationQuery("");
+                    }}
+                  >
+                    <label>
+                      新查询
+                      <input
+                        value={continuationQuery}
+                        maxLength={500}
+                        onChange={(event) =>
+                          setContinuationQuery(event.target.value)
+                        }
+                        placeholder="例如：寻找相反证据或更新数据"
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={
+                        !session.supports("research_continue") ||
+                        !continuationQuery.trim()
+                      }
+                    >
+                      提交继续调查
+                    </button>
+                  </form>
+                </section>
+              )}
             {run.summary && (
               <section>
                 <h3>综合摘要</h3>

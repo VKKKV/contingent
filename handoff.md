@@ -16,7 +16,9 @@ Implemented:
   and old v1/v2 projects remain readable.
 - `research_frontier` exposes the bounded v2 query frontier as an authenticated cursor-paginated read
   model. It records framing queries, priority, attempted/skipped/stop state and explicit gaps without
-  claiming query-level source attribution.
+  claiming query-level source attribution. Terminal v2 runs also accept explicit `research_continue`
+  jobs with new bounded queries; continuation evidence/frontier reads are separately persisted and do
+  not mutate the parent snapshot.
 - The old supply-chain Web page is removed. Its deterministic kernel, stored data and HTTP/CLI/MCP
   operations remain compatible; legacy `vision_*` analysis remains single-call and explicitly saved.
 - The UTC nixie clock, local particle background, shared graph controls and responsive analysis UI are
@@ -28,11 +30,13 @@ Known boundaries:
 
 - Research is bounded and does not prove facts, causality or source independence. DDGS Brave search
   has no exact provider-response byte accounting; public fetch validates and pins addresses.
-- Critique-triggered follow-up research, resumable reruns, user-material attachment, human review,
-  assumption branches and portable packages are not implemented.
-- The paginated evidence read model currently mirrors the bounded v2 snapshot; it does not yet add a
-  source-version deduplication beyond a run, lexical passage selection, or critique-triggered follow-up
-  collection. The frontier is currently projected from one bounded run, not a resumable cross-run queue.
+- Automatic critique-triggered follow-up research, resumable global queues, user-material attachment,
+  human review, assumption branches and portable packages are not implemented. Continuation remains an
+  explicit new job with a new budget.
+- The paginated evidence read model mirrors the bounded v2 snapshot; continuation jobs add stable
+  cross-run evidence IDs and bounded lexical passage selection, but do not merge a global frontier or
+  claim source independence. The frontier is still projected per run/continuation, not a resumable
+  cross-run queue.
 - `TIANJI_RESEARCH_DNS=cloudflare` is an explicit opt-in for environments with fake-IP DNS; otherwise
   the system resolver is used and non-public answers fail closed.
 

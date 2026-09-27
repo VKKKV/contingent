@@ -10,12 +10,14 @@ introduce another runner or research platform without a concrete need.
 ## 1. Next slice: explicit continuation research
 
 The current slice projects framing queries into an additive, authenticated, cursor-paginated frontier
-read model and mirrors v2 sources/passages into paginated tables. It deliberately keeps the run JSON as
-the compatibility source of truth; old v1/v2 projects remain readable. The next slice must turn this
-projection into a durable continuation model: preserve question, parent question, goal facet, query,
-priority, state, attempts and evidence references across explicit continuation runs, then add source
-versions/passages with stable cross-run IDs. Select passages by relevance across full retained documents,
-initially with lexical/SQLite facilities rather than a vector service.
+read model and mirrors v2 sources/passages into paginated tables. It also supports an explicit,
+separately queued continuation from a terminal v2 run: the parent snapshot remains immutable, source
+versions receive stable cross-run identities, and continuation passages are selected with bounded lexical
+overlap across the retained document rather than a vector service. Old v1/v2 projects remain readable.
+
+The continuation read model is still bounded and per-parent; it is not an unlimited archive or a
+resumable global queue. Critique output does not automatically start a continuation: the user or an
+explicit caller must submit new queries.
 
 Alternate search, source reading and gap assessment. Critique may request primary evidence, newer
 information, counterevidence or missing actor/resource/mechanism/time/geography coverage. Stop with an
